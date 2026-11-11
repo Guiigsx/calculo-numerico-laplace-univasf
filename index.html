@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0289e0">
+  <meta name="description" content="Demonstração acadêmica da solução numérica da equação de Laplace por diferenças finitas e SOR.">
+  <title>Equação de Laplace | UNIVASF · Cálculo Numérico</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --blue: #0289e0;
+      --gold: #f9ac03;
+      --navy: #17324d;
+      --ink: #263746;
+      --muted: #657584;
+      --line: #dce5eb;
+      --paper: #ffffff;
+      --page: #f3f6f8;
+      --pale-blue: #edf7fd;
+      --shadow: 0 12px 34px rgba(23, 50, 77, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 92% 0%, rgba(2,137,224,.08), transparent 28rem),
+        var(--page);
+      font: 15px/1.58 "Segoe UI", Arial, sans-serif;
+    }
+    main { width: min(1160px, calc(100% - 40px)); margin: 28px auto 56px; }
+    .masthead, .hero, .panel, .results-block, .data-panel {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+    }
+    .masthead { position: relative; overflow: hidden; padding: 22px 28px; }
+    .masthead::before { content: ""; position: absolute; inset: 0 0 auto; height: 5px; background: linear-gradient(90deg,var(--blue) 0 74%,var(--gold) 74%); }
+    .brand-row { display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+    .brand-lockup { display:flex; align-items:center; gap:22px; min-width:0; }
+    .brand-signature { display:grid; justify-items:start; width:280px; flex:0 0 auto; }
+    .brand-signature img { width:280px; max-width:100%; height:auto; display:block; }
+    .signature-rule { width:100%; height:1px; margin:8px 0 5px; background:#343434; }
+    .signature-unit { color:#343434; font:12px Arial,sans-serif; letter-spacing:.01em; }
+    .brand-divider { width:1px; height:54px; background:var(--line); }
+    .institution { display:grid; gap:3px; }
+    .institution strong { color:var(--navy); font:700 14px Arial,sans-serif; letter-spacing:.025em; }
+    .institution span { color:var(--muted); font-size:13px; }
+    .course-tag { border-left:3px solid var(--gold); padding:5px 0 5px 13px; color:var(--navy); font-size:12px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+    .students { display:grid; grid-template-columns:100px minmax(0,1fr); gap:12px 24px; margin-top:20px; padding-top:16px; border-top:1px solid var(--line); }
+    .students h2 { margin:0; color:var(--muted); font:600 12px/1.58 "Segoe UI",Arial,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+    .student-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 28px; margin:0; padding:0; list-style:none; color:var(--navy); font-size:14px; font-weight:500; }
+    .student-list li { min-width:0; overflow-wrap:anywhere; }
+    .hero { margin-top:18px; padding:34px 38px 32px; color:white; border:0; background:linear-gradient(116deg,#17324d 0%,#1c527b 72%,#17679b 100%); position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-92px; top:-155px; width:360px; height:360px; border:1px solid rgba(255,255,255,.14); border-radius:50%; box-shadow:0 0 0 34px rgba(255,255,255,.035),0 0 0 70px rgba(255,255,255,.025); pointer-events:none; }
+    .eyebrow { position:relative; z-index:1; display:flex; align-items:center; gap:9px; color:#cae8f8; font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
+    .sun-dot { width:8px; height:8px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 4px rgba(249,172,3,.16); }
+    h1 { position:relative; z-index:1; margin:9px 0 8px; max-width:800px; font:600 clamp(27px,4vw,42px)/1.16 Georgia,"Times New Roman",serif; letter-spacing:-.02em; }
+    .hero-meta { position:relative; z-index:1; display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:23px; }
+    .equation-display { position:relative; z-index:1; display:inline-block; margin-top:21px; padding:12px 22px; border:1px solid rgba(255,255,255,.24); border-radius:10px; background:rgba(255,255,255,.08); }
+    .equation-display math, .equation-display math * { color:white; font-family:"Segoe UI",Arial,sans-serif; font-size:clamp(23px,3vw,30px); }
+    .method-chip { border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:7px 12px; color:#f5f8fa; font-size:12px; }
+    .control-row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin:21px 0 16px; }
+    .animation-controls { margin:12px 0 10px; }
+    .sor-progress { display:block; width:100%; height:8px; margin:0 0 12px; accent-color:var(--blue); }
+    button { border:0; border-radius:9px; padding:12px 18px; color:white; background:var(--blue); font:700 14px "Segoe UI",Arial,sans-serif; cursor:pointer; transition:transform .15s ease,filter .15s ease,box-shadow .15s ease; box-shadow:0 6px 15px rgba(2,137,224,.2); }
+    button:hover { filter:brightness(.94); transform:translateY(-1px); }
+    button:disabled { opacity:.66; cursor:wait; transform:none; }
+    #status { color:var(--muted); font-size:14px; }
+    #results[hidden] { display:none; }
+    .section-head { display:flex; align-items:end; justify-content:space-between; gap:18px; margin:30px 2px 14px; }
+    .section-head h2 { margin:0; color:var(--navy); font:600 25px/1.2 Georgia,"Times New Roman",serif; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:12px; }
+    .card { position:relative; overflow:hidden; min-height:100px; padding:15px 16px; background:white; border:1px solid var(--line); border-radius:12px; }
+    .card::before { content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--blue); }
+    .card:nth-child(3n)::before { background:var(--gold); }
+    .card span { display:block; color:var(--muted); font-size:12px; }
+    .card strong { display:block; margin-top:7px; color:var(--navy); font:600 19px/1.2 "Segoe UI",Arial,sans-serif; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .grid-panels { display:grid; grid-template-columns:1fr; gap:16px; }
+    .panel { padding:19px 20px 16px; }
+    .convergence-panel { margin-top:16px; }
+    .panel-title { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin:0 0 13px; }
+    .panel-title h3 { margin:0; color:var(--navy); font-size:16px; }
+    .panel-kicker { white-space:nowrap; padding:5px 9px; background:var(--pale-blue); color:#14608d; border-radius:999px; font-size:11px; font-weight:700; }
+    canvas.chart { display:block; width:100%; height:auto; border:1px solid #e1e8ed; border-radius:10px; background:#fff; }
+    .point-map-panel { margin-top:16px; }
+    .point-readout { display:flex; align-items:center; flex-wrap:wrap; gap:7px 18px; min-height:48px; margin:0 0 12px; padding:10px 13px; border-left:3px solid var(--blue); border-radius:8px; background:var(--pale-blue); color:var(--ink); font-size:13px; font-variant-numeric:tabular-nums; }
+    .point-readout strong { color:var(--navy); }
+    .point-tooltip { position:fixed; z-index:100; width:min(290px,calc(100vw - 24px)); padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--paper); box-shadow:0 10px 26px rgba(23,50,77,.2); color:var(--ink); font-size:12px; line-height:1.45; font-variant-numeric:tabular-nums; pointer-events:none; }
+    .point-tooltip[hidden] { display:none; }
+    .point-tooltip-title { margin-bottom:7px; color:var(--navy); font-size:13px; font-weight:700; }
+    .point-tooltip-row { display:flex; justify-content:space-between; gap:12px; margin-top:3px; }
+    .point-tooltip-label { color:var(--muted); }
+    .point-tooltip-value { color:var(--ink); font-weight:600; text-align:right; }
+    .grid-scroll { max-width:100%; overflow:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }
+    canvas.chart.interactive-grid { width:1000px; max-width:none; border:0; border-radius:0; cursor:crosshair; }
+    .results-block { margin-top:16px; padding:19px 20px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; background:white; }
+    table { width:100%; border-collapse:collapse; min-width:650px; }
+    th,td { padding:10px 12px; border-bottom:1px solid #e8edf1; text-align:right; font-variant-numeric:tabular-nums; }
+    th { background:#eaf5fc; color:var(--navy); font-size:12px; letter-spacing:.02em; }
+    th:first-child,td:first-child { text-align:center; }
+    tbody tr:nth-child(even) { background:#f8fafb; }
+    details.data-panel { margin-top:16px; padding:0; overflow:hidden; }
+    details.data-panel summary { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:17px 20px; color:var(--navy); font-weight:700; cursor:pointer; list-style:none; }
+    details.data-panel summary::-webkit-details-marker { display:none; }
+    details.data-panel summary::after { content:"＋"; color:var(--blue); font-size:19px; }
+    details.data-panel[open] summary::after { content:"−"; }
+    .details-body { padding:0 20px 20px; }
+    .results-scroll { max-height:460px; overflow:auto; border:1px solid var(--line); border-radius:9px; background:#f7f9fb; }
+    pre { margin:0; padding:14px; white-space:pre; overflow:auto; font:12px/1.55 Consolas,"Courier New",monospace; }
+    #source { max-height:460px; }
+    .small-button { margin:0 0 12px; padding:9px 13px; font-size:12px; box-shadow:none; }
+    @media (max-width:700px) {
+      main { width:calc(100% - 22px); margin:12px auto 30px; }
+      .masthead { padding:19px 18px; }
+      .brand-lockup { gap:14px; flex-wrap:wrap; }
+      .brand-signature { width:min(240px,64vw); }
+      .brand-signature img { width:100%; }
+      .signature-unit { font-size:11px; }
+      .brand-divider { display:none; }
+      .institution strong { font-size:11px; }
+      .institution span { font-size:11px; }
+      .students { grid-template-columns:1fr; gap:8px; }
+      .student-list { grid-template-columns:1fr; }
+      .hero { padding:25px 22px; }
+      .section-head { align-items:flex-start; flex-direction:column; }
+      .panel { padding:14px; }
+      .panel-title { flex-direction:column; gap:7px; }
+      .panel-kicker { white-space:normal; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="masthead">
+    <div class="brand-row">
+      <div class="brand-lockup">
+        <div class="brand-signature">
+          <img src="data:image/png;base64,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" alt="Marca oficial da Universidade Federal do Vale do São Francisco">
+          <span class="signature-rule" aria-hidden="true"></span>
+          <span class="signature-unit">MATM0048 — Cálculo Numérico</span>
+        </div>
+        <span class="brand-divider" aria-hidden="true"></span>
+        <div class="institution">
+          <strong>UNIVERSIDADE FEDERAL DO VALE DO SÃO FRANCISCO</strong>
+          <span>Prof. Sergio Floquet</span>
+          <span>Colegiados CCIVIL, CENEL, CPROD e CENMEC</span>
+        </div>
+      </div>
+      <div class="course-tag">Demonstração<br>acadêmica interativa</div>
+    </div>
+    <div class="students" aria-labelledby="students-title">
+      <h2 id="students-title">Discentes</h2>
+      <ul class="student-list">
+        <li>Cecília Moura Reis Frota</li>
+        <li>Guilherme Hilário Schmitz da Silva</li>
+        <li>Guilherme Torres de Miranda</li>
+        <li>Luiz Felipe Monte de Oliveira</li>
+      </ul>
+    </div>
+  </header>
+
+  <section class="hero" aria-labelledby="page-title">
+    <div class="eyebrow"><span class="sun-dot"></span> Equações diferenciais parciais</div>
+    <h1 id="page-title">Equação de Laplace em uma placa</h1>
+    <div class="equation-display" aria-label="Equação diferencial de Laplace">
+      <math display="block" aria-label="Derivada parcial segunda de T em relação a x, mais derivada parcial segunda de T em relação a y, igual a zero">
+        <mrow>
+          <mfrac>
+            <mrow><msup><mo>∂</mo><mn>2</mn></msup><mi>T</mi></mrow>
+            <mrow><mo>∂</mo><msup><mi>x</mi><mn>2</mn></msup></mrow>
+          </mfrac>
+          <mo>+</mo>
+          <mfrac>
+            <mrow><msup><mo>∂</mo><mn>2</mn></msup><mi>T</mi></mrow>
+            <mrow><mo>∂</mo><msup><mi>y</mi><mn>2</mn></msup></mrow>
+          </mfrac>
+          <mo>=</mo><mn>0</mn>
+        </mrow>
+      </math>
+    </div>
+    <div class="hero-meta">
+      <span class="method-chip">h = k = 0,5</span>
+      <span class="method-chip">Sobrerrelaxação sucessiva · SOR</span>
+    </div>
+  </section>
+
+  <div class="control-row">
+    <button id="run" type="button">Executar cálculo</button>
+    <span id="status" role="status" aria-live="polite">Pronto para calcular no navegador.</span>
+  </div>
+  <section id="results" hidden aria-live="polite">
+    <div class="section-head">
+      <h2>Resultados da execução</h2>
+    </div>
+    <div class="cards" id="cards"></div>
+
+    <section class="panel convergence-panel" aria-labelledby="convergence-title">
+      <div class="panel-title"><div><h3 id="convergence-title">Evolução das temperaturas durante o cálculo</h3></div><span class="panel-kicker">Convergência SOR</span></div>
+      <div class="control-row animation-controls">
+        <button id="playConvergence" type="button">Reproduzir animação</button>
+        <span id="convergenceStatus" role="status" aria-live="polite">Execute o cálculo para preparar a visualização.</span>
+      </div>
+      <progress class="sor-progress" id="sorProgress" value="0" max="479" aria-label="Progresso das varreduras SOR">0%</progress>
+      <canvas id="convergenceMap" class="chart" width="1000" height="500" aria-label="Animação da temperatura na malha ao longo das varreduras do método SOR"></canvas>
+    </section>
+
+    <div class="section-head"><h2>Visualização da solução</h2></div>
+    <div class="grid-panels">
+      <article class="panel">
+        <div class="panel-title"><div><h3>Superfície tridimensional</h3></div><span class="panel-kicker">Perspectiva isométrica</span></div>
+        <canvas id="surface" class="chart" width="1000" height="500" aria-label="Superfície tridimensional da temperatura, com os quatro cantos da placa identificados"></canvas>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><h3>Mapa de temperatura</h3></div><span class="panel-kicker">Escala contínua</span></div>
+        <canvas id="heatmap" class="chart" width="1000" height="500" aria-label="Mapa de calor da temperatura na placa, com eixos x e y"></canvas>
+      </article>
+    </div>
+
+    <section class="panel point-map-panel" aria-labelledby="point-map-title">
+      <div class="panel-title"><div><h3 id="point-map-title">Planta interativa da malha</h3></div><span class="panel-kicker">79 × 81 pontos</span></div>
+      <div id="selectedPointInfo" class="point-readout" role="status" aria-live="polite">Selecione um quadrado para consultar suas coordenadas e temperaturas; com o foco na planta, use as setas do teclado para percorrer os pontos.</div>
+      <div class="grid-scroll"><canvas id="pointMap" class="chart interactive-grid" width="1000" height="900" tabindex="0" aria-label="Planta interativa da malha. Clique em um ponto ou use as setas do teclado para selecioná-lo."></canvas></div>
+    </section>
+
+    <section class="results-block">
+      <div class="section-head"><h2>Comparação pontual</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>x</th><th>y</th><th>T numérica</th><th>T analítica</th><th>Erro absoluto</th></tr></thead>
+        <tbody id="samples"></tbody>
+      </table></div>
+    </section>
+
+    <details class="data-panel">
+      <summary>Lista completa das 6.083 temperaturas internas</summary>
+      <div class="details-body">
+        <button class="small-button" id="downloadCsv" type="button">Baixar resultados em CSV</button>
+        <div class="results-scroll"><pre id="allRows"></pre></div>
+      </div>
+    </details>
+    <details class="data-panel">
+      <summary>Ver o código JavaScript puro</summary>
+      <div class="details-body"><div class="results-scroll"><pre id="source"></pre></div></div>
+    </details>
+  </section>
+
+</main>
+<div id="pointTooltip" class="point-tooltip" hidden aria-hidden="true"></div>
+
+<script>
+"use strict";
+
+const X0 = 1.0;
+const X1 = 40.0;
+const Y0 = 0.0;
+const Y1 = 40.0;
+const H = 0.5;
+const K = 0.5;
+const OMEGA = 1.92;
+const TOL = 1e-12;
+const MAX_SWEEPS = 20000;
+
+function exact(x, y) {
+  return Math.log(x * x + y * y);
+}
+
+function createLaplaceStepper() {
+  const nx = Math.round((X1 - X0) / H) + 1;
+  const ny = Math.round((Y1 - Y0) / K) + 1;
+  const values = new Float64Array(nx * ny);
+  const index = (i, j) => j * nx + i;
+  const xAt = (i) => X0 + i * H;
+  const yAt = (j) => Y0 + j * K;
+
+  for (let j = 0; j < ny; j += 1) {
+    values[index(0, j)] = Math.log(1 + yAt(j) ** 2);
+    values[index(nx - 1, j)] = Math.log(1600 + yAt(j) ** 2);
+  }
+  for (let i = 0; i < nx; i += 1) {
+    values[index(i, 0)] = 2 * Math.log(xAt(i));
+    values[index(i, ny - 1)] = Math.log(xAt(i) ** 2 + 1600);
+  }
+
+  let sweeps = 0;
+  let maxUpdate = Infinity;
+  function step(maxSteps = 1) {
+    let completed = 0;
+    while (completed < maxSteps && sweeps < MAX_SWEEPS && maxUpdate >= TOL) {
+      maxUpdate = 0;
+      for (let color = 0; color <= 1; color += 1) {
+        for (let j = 1; j < ny - 1; j += 1) {
+          for (let i = 1; i < nx - 1; i += 1) {
+            if (((i + j) & 1) !== color) continue;
+            const p = index(i, j);
+            const average = 0.25 * (
+              values[p - 1] + values[p + 1] +
+              values[p - nx] + values[p + nx]
+            );
+            const next = values[p] + OMEGA * (average - values[p]);
+            const change = Math.abs(next - values[p]);
+            if (change > maxUpdate) maxUpdate = change;
+            values[p] = next;
+          }
+        }
+      }
+      sweeps += 1;
+      completed += 1;
+    }
+    return { sweeps, maxUpdate, done: sweeps >= MAX_SWEEPS || maxUpdate < TOL };
+  }
+
+  return { nx, ny, values, xAt, yAt, step, get sweeps() { return sweeps; }, get maxUpdate() { return maxUpdate; } };
+}
+
+function solveLaplace() {
+  const stepper = createLaplaceStepper();
+  let progress = stepper.step(MAX_SWEEPS);
+  const { nx, ny, values, xAt, yAt } = stepper;
+  const sweeps = progress.sweeps;
+  const maxUpdate = progress.maxUpdate;
+  const index = (i, j) => j * nx + i;
+
+  let maxResidual = 0;
+  let maxError = 0;
+  let sumError = 0;
+  let sumSquaredError = 0;
+  let maxErrorI = 0;
+  let maxErrorJ = 0;
+  let minTemperature = Infinity;
+  let maxTemperature = -Infinity;
+
+  for (let j = 0; j < ny; j += 1) {
+    for (let i = 0; i < nx; i += 1) {
+      const value = values[index(i, j)];
+      minTemperature = Math.min(minTemperature, value);
+      maxTemperature = Math.max(maxTemperature, value);
+      if (i === 0 || i === nx - 1 || j === 0 || j === ny - 1) continue;
+
+      const p = index(i, j);
+      const residual = Math.abs(
+        4 * values[p] - values[p - 1] - values[p + 1] -
+        values[p - nx] - values[p + nx]
+      );
+      maxResidual = Math.max(maxResidual, residual);
+
+      const error = Math.abs(values[p] - exact(xAt(i), yAt(j)));
+      sumError += error;
+      sumSquaredError += error * error;
+      if (error > maxError) {
+        maxError = error;
+        maxErrorI = i;
+        maxErrorJ = j;
+      }
+    }
+  }
+
+  const interiorUnknowns = (nx - 2) * (ny - 2);
+  const metrics = {
+    nx,
+    ny,
+    interiorUnknowns,
+    sweeps,
+    omega: OMEGA,
+    maxUpdate,
+    maxResidual,
+    maxAbsError: maxError,
+    meanAbsError: sumError / interiorUnknowns,
+    rmse: Math.sqrt(sumSquaredError / interiorUnknowns),
+    maxErrorX: xAt(maxErrorI),
+    maxErrorY: yAt(maxErrorJ),
+    minTemperature,
+    maxTemperature,
+  };
+
+  const sampleCoordinates = [
+    [1.5, 1.5], [2.0, 1.0], [5.0, 5.0],
+    [10.0, 10.0], [20.0, 20.0], [39.5, 39.5],
+  ];
+  const samples = sampleCoordinates.map(([x, y]) => {
+    const i = Math.round((x - X0) / H);
+    const j = Math.round((y - Y0) / K);
+    const numerical = values[index(i, j)];
+    const analytical = exact(x, y);
+    return { x, y, numerical, analytical, absoluteError: Math.abs(numerical - analytical) };
+  });
+
+  return { nx, ny, values, metrics, samples, xAt, yAt };
+}
+
+function printResults(result, calculationMs) {
+  const m = result.metrics;
+  console.log("Equação de Laplace — diferenças finitas e SOR (JavaScript puro)");
+  console.log(`Malha: ${m.nx} × ${m.ny} nós; ${m.interiorUnknowns} incógnitas internas.`);
+  console.log(`SOR: ω = ${m.omega}; ${m.sweeps} varreduras; maior atualização = ${m.maxUpdate.toExponential(3)}.`);
+  console.log(`Resíduo máximo do stencil: ${m.maxResidual.toExponential(3)}.`);
+  console.log(`Erro máximo: ${m.maxAbsError.toFixed(12)} em (${m.maxErrorX}, ${m.maxErrorY}).`);
+  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}; RMSE: ${m.rmse.toFixed(12)}.`);
+  console.log("Comparação em pontos selecionados:");
+  console.table(result.samples.map((s) => ({
+    x: s.x,
+    y: s.y,
+    "T numérica": s.numerical.toFixed(12),
+    "T analítica": s.analytical.toFixed(12),
+    "Erro absoluto": s.absoluteError.toExponential(3),
+  })));
+  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms (sem contar a impressão da lista).`);
+  console.log("\nLISTA COMPLETA DAS TEMPERATURAS INTERNAS");
+  console.log("N | x | y | T numérica | T analítica | Erro absoluto");
+  let rowNumber = 0;
+  for (let j = 1; j < result.ny - 1; j += 1) {
+    for (let i = 1; i < result.nx - 1; i += 1) {
+      rowNumber += 1;
+      const x = result.xAt(i);
+      const y = result.yAt(j);
+      const numerical = result.values[j * result.nx + i];
+      const analytical = exact(x, y);
+      const error = Math.abs(numerical - analytical);
+      console.log(`${String(rowNumber).padStart(4, "0")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +
+        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);
+    }
+  }
+  console.log(`Resultados impressos: ${rowNumber}.`);
+}
+
+if (typeof globalThis !== "undefined") {
+  globalThis.solveLaplace = solveLaplace;
+  globalThis.createLaplaceStepper = createLaplaceStepper;
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { solveLaplace, exact, createLaplaceStepper };
+}
+
+function clockMilliseconds() {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+if (typeof document === "undefined") {
+  const start = clockMilliseconds();
+  const result = solveLaplace();
+  const calculationMs = clockMilliseconds() - start;
+  printResults(result, calculationMs);
+}
+
+</script>
+<script>
+"use strict";
+const sourceText = "\"use strict\";\n\nconst X0 = 1.0;\nconst X1 = 40.0;\nconst Y0 = 0.0;\nconst Y1 = 40.0;\nconst H = 0.5;\nconst K = 0.5;\nconst OMEGA = 1.92;\nconst TOL = 1e-12;\nconst MAX_SWEEPS = 20000;\n\nfunction exact(x, y) {\n  return Math.log(x * x + y * y);\n}\n\nfunction createLaplaceStepper() {\n  const nx = Math.round((X1 - X0) / H) + 1;\n  const ny = Math.round((Y1 - Y0) / K) + 1;\n  const values = new Float64Array(nx * ny);\n  const index = (i, j) => j * nx + i;\n  const xAt = (i) => X0 + i * H;\n  const yAt = (j) => Y0 + j * K;\n\n  for (let j = 0; j < ny; j += 1) {\n    values[index(0, j)] = Math.log(1 + yAt(j) ** 2);\n    values[index(nx - 1, j)] = Math.log(1600 + yAt(j) ** 2);\n  }\n  for (let i = 0; i < nx; i += 1) {\n    values[index(i, 0)] = 2 * Math.log(xAt(i));\n    values[index(i, ny - 1)] = Math.log(xAt(i) ** 2 + 1600);\n  }\n\n  let sweeps = 0;\n  let maxUpdate = Infinity;\n  function step(maxSteps = 1) {\n    let completed = 0;\n    while (completed < maxSteps && sweeps < MAX_SWEEPS && maxUpdate >= TOL) {\n      maxUpdate = 0;\n      for (let color = 0; color <= 1; color += 1) {\n        for (let j = 1; j < ny - 1; j += 1) {\n          for (let i = 1; i < nx - 1; i += 1) {\n            if (((i + j) & 1) !== color) continue;\n            const p = index(i, j);\n            const average = 0.25 * (\n              values[p - 1] + values[p + 1] +\n              values[p - nx] + values[p + nx]\n            );\n            const next = values[p] + OMEGA * (average - values[p]);\n            const change = Math.abs(next - values[p]);\n            if (change > maxUpdate) maxUpdate = change;\n            values[p] = next;\n          }\n        }\n      }\n      sweeps += 1;\n      completed += 1;\n    }\n    return { sweeps, maxUpdate, done: sweeps >= MAX_SWEEPS || maxUpdate < TOL };\n  }\n\n  return { nx, ny, values, xAt, yAt, step, get sweeps() { return sweeps; }, get maxUpdate() { return maxUpdate; } };\n}\n\nfunction solveLaplace() {\n  const stepper = createLaplaceStepper();\n  let progress = stepper.step(MAX_SWEEPS);\n  const { nx, ny, values, xAt, yAt } = stepper;\n  const sweeps = progress.sweeps;\n  const maxUpdate = progress.maxUpdate;\n  const index = (i, j) => j * nx + i;\n\n  let maxResidual = 0;\n  let maxError = 0;\n  let sumError = 0;\n  let sumSquaredError = 0;\n  let maxErrorI = 0;\n  let maxErrorJ = 0;\n  let minTemperature = Infinity;\n  let maxTemperature = -Infinity;\n\n  for (let j = 0; j < ny; j += 1) {\n    for (let i = 0; i < nx; i += 1) {\n      const value = values[index(i, j)];\n      minTemperature = Math.min(minTemperature, value);\n      maxTemperature = Math.max(maxTemperature, value);\n      if (i === 0 || i === nx - 1 || j === 0 || j === ny - 1) continue;\n\n      const p = index(i, j);\n      const residual = Math.abs(\n        4 * values[p] - values[p - 1] - values[p + 1] -\n        values[p - nx] - values[p + nx]\n      );\n      maxResidual = Math.max(maxResidual, residual);\n\n      const error = Math.abs(values[p] - exact(xAt(i), yAt(j)));\n      sumError += error;\n      sumSquaredError += error * error;\n      if (error > maxError) {\n        maxError = error;\n        maxErrorI = i;\n        maxErrorJ = j;\n      }\n    }\n  }\n\n  const interiorUnknowns = (nx - 2) * (ny - 2);\n  const metrics = {\n    nx,\n    ny,\n    interiorUnknowns,\n    sweeps,\n    omega: OMEGA,\n    maxUpdate,\n    maxResidual,\n    maxAbsError: maxError,\n    meanAbsError: sumError / interiorUnknowns,\n    rmse: Math.sqrt(sumSquaredError / interiorUnknowns),\n    maxErrorX: xAt(maxErrorI),\n    maxErrorY: yAt(maxErrorJ),\n    minTemperature,\n    maxTemperature,\n  };\n\n  const sampleCoordinates = [\n    [1.5, 1.5], [2.0, 1.0], [5.0, 5.0],\n    [10.0, 10.0], [20.0, 20.0], [39.5, 39.5],\n  ];\n  const samples = sampleCoordinates.map(([x, y]) => {\n    const i = Math.round((x - X0) / H);\n    const j = Math.round((y - Y0) / K);\n    const numerical = values[index(i, j)];\n    const analytical = exact(x, y);\n    return { x, y, numerical, analytical, absoluteError: Math.abs(numerical - analytical) };\n  });\n\n  return { nx, ny, values, metrics, samples, xAt, yAt };\n}\n\nfunction printResults(result, calculationMs) {\n  const m = result.metrics;\n  console.log(\"Equação de Laplace — diferenças finitas e SOR (JavaScript puro)\");\n  console.log(`Malha: ${m.nx} × ${m.ny} nós; ${m.interiorUnknowns} incógnitas internas.`);\n  console.log(`SOR: ω = ${m.omega}; ${m.sweeps} varreduras; maior atualização = ${m.maxUpdate.toExponential(3)}.`);\n  console.log(`Resíduo máximo do stencil: ${m.maxResidual.toExponential(3)}.`);\n  console.log(`Erro máximo: ${m.maxAbsError.toFixed(12)} em (${m.maxErrorX}, ${m.maxErrorY}).`);\n  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}; RMSE: ${m.rmse.toFixed(12)}.`);\n  console.log(\"Comparação em pontos selecionados:\");\n  console.table(result.samples.map((s) => ({\n    x: s.x,\n    y: s.y,\n    \"T numérica\": s.numerical.toFixed(12),\n    \"T analítica\": s.analytical.toFixed(12),\n    \"Erro absoluto\": s.absoluteError.toExponential(3),\n  })));\n  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms (sem contar a impressão da lista).`);\n  console.log(\"\\nLISTA COMPLETA DAS TEMPERATURAS INTERNAS\");\n  console.log(\"N | x | y | T numérica | T analítica | Erro absoluto\");\n  let rowNumber = 0;\n  for (let j = 1; j < result.ny - 1; j += 1) {\n    for (let i = 1; i < result.nx - 1; i += 1) {\n      rowNumber += 1;\n      const x = result.xAt(i);\n      const y = result.yAt(j);\n      const numerical = result.values[j * result.nx + i];\n      const analytical = exact(x, y);\n      const error = Math.abs(numerical - analytical);\n      console.log(`${String(rowNumber).padStart(4, \"0\")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +\n        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);\n    }\n  }\n  console.log(`Resultados impressos: ${rowNumber}.`);\n}\n\nif (typeof globalThis !== \"undefined\") {\n  globalThis.solveLaplace = solveLaplace;\n  globalThis.createLaplaceStepper = createLaplaceStepper;\n}\n\nif (typeof module !== \"undefined\" && module.exports) {\n  module.exports = { solveLaplace, exact, createLaplaceStepper };\n}\n\nfunction clockMilliseconds() {\n  return typeof performance !== \"undefined\" && typeof performance.now === \"function\"\n    ? performance.now()\n    : Date.now();\n}\n\nif (typeof document === \"undefined\") {\n  const start = clockMilliseconds();\n  const result = solveLaplace();\n  const calculationMs = clockMilliseconds() - start;\n  printResults(result, calculationMs);\n}\n";
+const button = document.getElementById("run");
+const statusLine = document.getElementById("status");
+const resultPanel = document.getElementById("results");
+let lastSolutionResult = null;
+const pointMapCanvas = document.getElementById("pointMap");
+const pointInfo = document.getElementById("selectedPointInfo");
+const pointTooltip = document.getElementById("pointTooltip");
+let pointMapResult = null;
+let selectedGridPoint = null;
+document.getElementById("source").textContent = sourceText;
+
+function fmt(value, digits=6) {
+  return Number(value).toLocaleString("pt-BR", {minimumFractionDigits:digits, maximumFractionDigits:digits});
+}
+function expfmt(value) { return Number(value).toExponential(3).replace(".", ","); }
+function sciHtml(value) {
+  const [coefficient, exponentText] = Number(value).toExponential(2).split("e");
+  const exponent = Number(exponentText);
+  const sign = exponent < 0 ? "−" : "";
+  return `${coefficient.replace(".", ",")} × 10<sup>${sign}${Math.abs(exponent)}</sup>`;
+}
+
+function showMetrics(result, calculationMs, listPreparationMs) {
+  const m = result.metrics;
+  const cards = [
+    ["Pontos da malha", `${m.nx} × ${m.ny}`],
+    ["Pontos internos calculados", m.interiorUnknowns.toLocaleString("pt-BR")],
+    ["Varreduras SOR", m.sweeps.toLocaleString("pt-BR")],
+    ["Resíduo máximo", sciHtml(m.maxResidual)],
+    ["Erro máximo", fmt(m.maxAbsError, 6)],
+    ["Erro absoluto médio", fmt(m.meanAbsError, 6)],
+    ["RMSE", fmt(m.rmse, 6)],
+    ["Ponto de erro máximo", `(${fmt(m.maxErrorX,1)}; ${fmt(m.maxErrorY,1)})`],
+    ["Tempo de cálculo", `${fmt(calculationMs,2)} ms`],
+    ["Preparação da lista", `${fmt(listPreparationMs,2)} ms`],
+  ];
+  document.getElementById("cards").innerHTML = cards.map(([label,value]) =>
+    `<div class="card"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  document.getElementById("samples").innerHTML = result.samples.map(s =>
+    `<tr><td>${fmt(s.x,1)}</td><td>${fmt(s.y,1)}</td><td>${fmt(s.numerical,12)}</td><td>${fmt(s.analytical,12)}</td><td>${expfmt(s.absoluteError)}</td></tr>`).join("");
+}
+
+let csvContent = "";
+function prepareFullList(result) {
+  const lines = ["N | i | j | x | y | T numerica | T analitica | erro absoluto"];
+  const csvLines = ["N;i;j;x;y;T_numerica;T_analitica;erro_absoluto"];
+  let n = 0;
+  for(let j=1;j<result.ny-1;j++) for(let i=1;i<result.nx-1;i++) {
+    n++;
+    const x=result.xAt(i), y=result.yAt(j), numerical=result.values[j*result.nx+i];
+    const analytical=Math.log(x*x+y*y), error=Math.abs(numerical-analytical);
+    lines.push(`${String(n).padStart(4,"0")} | ${i} | ${j} | ${fmt(x,1)} | ${fmt(y,1)} | ${fmt(numerical,12)} | ${fmt(analytical,12)} | ${expfmt(error)}`);
+    csvLines.push(`${n};${i};${j};${x.toFixed(1)};${y.toFixed(1)};${numerical.toFixed(12)};${analytical.toFixed(12)};${error.toExponential(12)}`);
+  }
+  csvContent=csvLines.join("\n");
+  document.getElementById("allRows").textContent=lines.join("\n");
+  return n;
+}
+
+const colorStops = [
+  [249,172,3], [50,177,207], [2,137,224], [20,58,94]
+];
+function colorAt(t) {
+  const p = Math.max(0,Math.min(1,t)) * (colorStops.length-1);
+  const a = Math.floor(p), b = Math.min(a+1,colorStops.length-1), f = p-a;
+  const c = colorStops[a].map((v,i) => Math.round(v*(1-f)+colorStops[b][i]*f));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function drawHeatmap(result, canvasId="heatmap", annotation="") {
+  const canvas = document.getElementById(canvasId), ctx = canvas.getContext("2d");
+  const {nx,ny,values,metrics:m} = result;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const plot = {x:92,y:30,w:790,h:390};
+  const cw=plot.w/nx, ch=plot.h/ny;
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++) {
+    const t=(values[j*nx+i]-m.minTemperature)/(m.maxTemperature-m.minTemperature);
+    ctx.fillStyle=colorAt(t);
+    ctx.fillRect(plot.x+i*cw,plot.y+(ny-1-j)*ch,cw+0.5,ch+0.5);
+  }
+  ctx.strokeStyle="#24313d"; ctx.lineWidth=1.5; ctx.strokeRect(plot.x,plot.y,plot.w,plot.h);
+  ctx.fillStyle="#263746"; ctx.font="15px Segoe UI, Arial"; ctx.textAlign="center";
+  ctx.fillText("x",plot.x+plot.w/2,465);
+  ctx.save(); ctx.translate(26,plot.y+plot.h/2); ctx.rotate(-Math.PI/2); ctx.fillText("y",0,0); ctx.restore();
+  const xTicks=[1,10,20,30,40], yTicks=[0,10,20,30,40];
+  ctx.textAlign="center";
+  for(const tick of xTicks) {
+    const x=plot.x+(tick-1)/(40-1)*plot.w;
+    ctx.strokeStyle="rgba(255,255,255,.42)"; ctx.lineWidth=.7;
+    ctx.beginPath(); ctx.moveTo(x,plot.y); ctx.lineTo(x,plot.y+plot.h); ctx.stroke();
+    ctx.fillStyle="#263746"; ctx.fillText(String(tick),x,442);
+  }
+  for(const tick of yTicks) {
+    const y=plot.y+(40-tick)/40*plot.h;
+    ctx.strokeStyle="rgba(255,255,255,.42)"; ctx.lineWidth=.7;
+    ctx.beginPath(); ctx.moveTo(plot.x,y); ctx.lineTo(plot.x+plot.w,y); ctx.stroke();
+    ctx.fillStyle="#263746"; ctx.textAlign="right"; ctx.fillText(String(tick),plot.x-10,y+5);
+  }
+  const grad=ctx.createLinearGradient(0,plot.y,0,plot.y+plot.h);
+  colorStops.forEach((_,i)=>grad.addColorStop(i/(colorStops.length-1),colorAt(1-i/(colorStops.length-1))));
+  ctx.fillStyle=grad; ctx.fillRect(915,plot.y,24,plot.h); ctx.strokeStyle="#53616d"; ctx.strokeRect(915,plot.y,24,plot.h);
+  ctx.fillStyle="#263746"; ctx.textAlign="left"; ctx.fillText(fmt(m.maxTemperature,2),946,plot.y+6); ctx.fillText(fmt(m.minTemperature,2),946,plot.y+plot.h);
+  ctx.font="11px Segoe UI,Arial"; ctx.fillText("mais quente",946,plot.y-9); ctx.fillText("mais fria",946,plot.y+plot.h+18);
+  if(annotation) { ctx.font="13px Segoe UI,Arial"; ctx.fillStyle="#17324d"; ctx.textAlign="left"; ctx.fillText(annotation,plot.x,19); }
+}
+function drawInteractiveMap(result) {
+  const ctx=pointMapCanvas.getContext("2d"), {nx,ny,values,metrics:m}=result;
+  const grid={x:85,y:35,cell:8,gap:2,pitch:10};
+  const width=(nx-1)*grid.pitch+grid.cell, height=(ny-1)*grid.pitch+grid.cell;
+  ctx.clearRect(0,0,pointMapCanvas.width,pointMapCanvas.height);
+  for(let row=0;row<ny;row++) for(let i=0;i<nx;i++) {
+    const j=ny-1-row, x=grid.x+i*grid.pitch, y=grid.y+row*grid.pitch;
+    const value=values[j*nx+i], t=(value-m.minTemperature)/(m.maxTemperature-m.minTemperature);
+    ctx.fillStyle=colorAt(t); ctx.fillRect(x,y,grid.cell,grid.cell);
+    if(selectedGridPoint && selectedGridPoint.i===i && selectedGridPoint.j===j) {
+      ctx.strokeStyle="#17324d"; ctx.lineWidth=2; ctx.strokeRect(x-1,y-1,grid.cell+2,grid.cell+2);
+    }
+  }
+
+  ctx.fillStyle="#263746"; ctx.font="13px Segoe UI,Arial"; ctx.textAlign="center";
+  for(const tick of [1,10,20,30,40]) {
+    const i=Math.round((tick-1)/H), x=grid.x+i*grid.pitch+grid.cell/2;
+    ctx.fillText(String(tick),x,grid.y+height+22);
+  }
+  for(const tick of [0,10,20,30,40]) {
+    const j=Math.round(tick/K), row=ny-1-j, y=grid.y+row*grid.pitch+grid.cell/2;
+    ctx.textAlign="right"; ctx.fillText(String(tick),grid.x-12,y+4);
+  }
+  ctx.textAlign="center"; ctx.fillText("x",grid.x+width/2,grid.y+height+46);
+  ctx.save(); ctx.translate(22,grid.y+height/2); ctx.rotate(-Math.PI/2); ctx.fillText("y",0,0); ctx.restore();
+
+  const legendX=895, legendY=grid.y, legendW=18, legendH=height;
+  const gradient=ctx.createLinearGradient(0,legendY,0,legendY+legendH);
+  colorStops.forEach((_,i)=>gradient.addColorStop(i/(colorStops.length-1),colorAt(1-i/(colorStops.length-1))));
+  ctx.fillStyle=gradient; ctx.fillRect(legendX,legendY,legendW,legendH);
+  ctx.fillStyle="#263746"; ctx.font="12px Segoe UI,Arial"; ctx.textAlign="left";
+  ctx.fillText(fmt(m.maxTemperature,2),legendX+25,legendY+5);
+  ctx.fillText(fmt(m.minTemperature,2),legendX+25,legendY+legendH);
+  ctx.font="11px Segoe UI,Arial"; ctx.fillText("mais quente",legendX+25,legendY-9); ctx.fillText("mais fria",legendX+25,legendY+legendH+18);
+}
+function selectGridPoint(i,j,anchor=null) {
+  if(!pointMapResult) return;
+  selectedGridPoint={i,j};
+  const {nx,values,xAt,yAt}=pointMapResult;
+  const x=xAt(i), y=yAt(j), numerical=values[j*nx+i], analytical=exact(x,y);
+  const error=Math.abs(numerical-analytical);
+  const onBoundary=i===0 || i===nx-1 || j===0 || j===pointMapResult.ny-1;
+  pointInfo.innerHTML=`<strong>Ponto (${fmt(x,1)}; ${fmt(y,1)})</strong><span>${onBoundary?"Borda":"Interior"}</span><span><b>T numérica:</b> ${fmt(numerical,8)}</span><span><b>T analítica:</b> ${fmt(analytical,8)}</span><span><b>Erro absoluto:</b> ${fmt(error,9)}</span>`;
+  pointMapCanvas.setAttribute("aria-label",`Ponto selecionado: x ${fmt(x,1)}, y ${fmt(y,1)}; ${onBoundary?"borda":"interior"}; temperatura numérica ${fmt(numerical,8)}; temperatura analítica ${fmt(analytical,8)}; erro ${fmt(error,9)}. Use as setas para percorrer os pontos.`);
+  pointTooltip.innerHTML=`<div class="point-tooltip-title">Ponto (${fmt(x,1)}; ${fmt(y,1)}) · ${onBoundary?"Borda":"Interior"}</div><div class="point-tooltip-row"><span class="point-tooltip-label">T numérica</span><span class="point-tooltip-value">${fmt(numerical,8)}</span></div><div class="point-tooltip-row"><span class="point-tooltip-label">T analítica</span><span class="point-tooltip-value">${fmt(analytical,8)}</span></div><div class="point-tooltip-row"><span class="point-tooltip-label">Erro absoluto</span><span class="point-tooltip-value">${fmt(error,9)}</span></div>`;
+  pointTooltip.hidden=false;
+  if(!anchor) {
+    const rect=pointMapCanvas.getBoundingClientRect(), row=pointMapResult.ny-1-j;
+    anchor={
+      x:rect.left+(85+i*10+4)*rect.width/pointMapCanvas.width,
+      y:rect.top+(35+row*10+4)*rect.height/pointMapCanvas.height,
+    };
+  }
+  let left=anchor.x+14, top=anchor.y+14;
+  const tooltipWidth=pointTooltip.offsetWidth, tooltipHeight=pointTooltip.offsetHeight;
+  if(left+tooltipWidth>window.innerWidth-8) left=anchor.x-tooltipWidth-14;
+  if(top+tooltipHeight>window.innerHeight-8) top=anchor.y-tooltipHeight-14;
+  pointTooltip.style.left=`${Math.max(8,Math.min(left,window.innerWidth-tooltipWidth-8))}px`;
+  pointTooltip.style.top=`${Math.max(8,Math.min(top,window.innerHeight-tooltipHeight-8))}px`;
+  drawInteractiveMap(pointMapResult);
+}
+function gridPointAtPointer(event) {
+  if(!pointMapResult) return null;
+  const rect=pointMapCanvas.getBoundingClientRect();
+  const px=(event.clientX-rect.left)*pointMapCanvas.width/rect.width;
+  const py=(event.clientY-rect.top)*pointMapCanvas.height/rect.height;
+  const grid={x:85,y:35,cell:8,gap:2,pitch:10};
+  const {nx,ny}=pointMapResult;
+  const maxX=grid.x+(nx-1)*grid.pitch+grid.cell, maxY=grid.y+(ny-1)*grid.pitch+grid.cell;
+  if(px<grid.x-grid.gap/2 || px>maxX+grid.gap/2 || py<grid.y-grid.gap/2 || py>maxY+grid.gap/2) return null;
+  const i=Math.max(0,Math.min(nx-1,Math.round((px-grid.x-grid.cell/2)/grid.pitch)));
+  const row=Math.max(0,Math.min(ny-1,Math.round((py-grid.y-grid.cell/2)/grid.pitch)));
+  return {i,j:ny-1-row};
+}
+pointMapCanvas.addEventListener("click",event=>{
+  const point=gridPointAtPointer(event);
+  if(point) selectGridPoint(point.i,point.j,{x:event.clientX,y:event.clientY});
+  else pointTooltip.hidden=true;
+});
+pointMapCanvas.addEventListener("keydown",event=>{
+  if(!pointMapResult) return;
+  const {nx,ny}=pointMapResult;
+  const current=selectedGridPoint||{i:Math.floor(nx/2),j:Math.floor(ny/2)};
+  let i=current.i,j=current.j;
+  if(event.key==="ArrowRight") i=Math.min(nx-1,i+1);
+  else if(event.key==="ArrowLeft") i=Math.max(0,i-1);
+  else if(event.key==="ArrowUp") j=Math.min(ny-1,j+1);
+  else if(event.key==="ArrowDown") j=Math.max(0,j-1);
+  else return;
+  event.preventDefault(); selectGridPoint(i,j);
+});
+document.addEventListener("pointerdown",event=>{
+  if(!pointMapCanvas.contains(event.target)) pointTooltip.hidden=true;
+});
+window.addEventListener("scroll",()=>{ pointTooltip.hidden=true; },true);
+window.addEventListener("resize",()=>{ pointTooltip.hidden=true; });
+function drawSurface(result) {
+  const canvas=document.getElementById("surface"),ctx=canvas.getContext("2d");
+  const {nx,ny,values,metrics:m}=result;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cx=canvas.width/2, sx=4.25, sy=1.85, sz=220, originY=100;
+  function normalized(i,j) { return (values[j*nx+i]-m.minTemperature)/(m.maxTemperature-m.minTemperature); }
+  function point(i,j) { return [cx+(i-j)*sx,originY+(i+j)*sy-normalized(i,j)*sz]; }
+  for(let diagonal=0;diagonal<nx+ny-2;diagonal++) {
+    const iMin=Math.max(0,diagonal-(ny-2)), iMax=Math.min(nx-2,diagonal);
+    for(let i=iMin;i<=iMax;i++) {
+      const j=diagonal-i;
+      const pts=[point(i,j),point(i+1,j),point(i+1,j+1),point(i,j+1)];
+      const avg=(values[j*nx+i]+values[j*nx+i+1]+values[(j+1)*nx+i+1]+values[(j+1)*nx+i])/4;
+      ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+      for(let q=1;q<pts.length;q++) ctx.lineTo(pts[q][0],pts[q][1]);
+      ctx.closePath(); ctx.fillStyle=colorAt((avg-m.minTemperature)/(m.maxTemperature-m.minTemperature)); ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=.42; ctx.stroke();
+    }
+  }
+  function corner(i,j,label,dx,dy) {
+    const p=point(i,j); ctx.beginPath(); ctx.arc(p[0],p[1],4,0,2*Math.PI); ctx.fillStyle="#17324d"; ctx.fill();
+    ctx.font="bold 13px Segoe UI, Arial"; ctx.textAlign="center"; ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,.94)"; ctx.strokeText(label,p[0]+dx,p[1]+dy); ctx.fillStyle="#17324d"; ctx.fillText(label,p[0]+dx,p[1]+dy);
+  }
+  corner(0,0,"(1, 0)",0,-15);
+  corner(nx-1,0,"(40, 0)",29,-2);
+  corner(0,ny-1,"(1, 40)",-31,-2);
+  corner(nx-1,ny-1,"(40, 40)",0,23);
+  ctx.fillStyle="#263746"; ctx.font="bold 14px Segoe UI, Arial"; ctx.textAlign="center";
+  ctx.fillText("Eixo x: 1 → 40",cx+206,405);
+  ctx.fillText("Eixo y: 0 → 40",cx-207,405);
+  ctx.fillText("T",cx+440,90);
+  const grad=ctx.createLinearGradient(0,55,0,220);
+  colorStops.forEach((_,i)=>grad.addColorStop(i/(colorStops.length-1),colorAt(1-i/(colorStops.length-1))));
+  ctx.fillStyle=grad; ctx.fillRect(945,65,18,160); ctx.strokeStyle="#526271"; ctx.strokeRect(945,65,18,160);
+  ctx.fillStyle="#263746"; ctx.font="12px Segoe UI,Arial"; ctx.textAlign="left";
+  ctx.fillText(fmt(m.maxTemperature,2),970,72); ctx.fillText(fmt(m.minTemperature,2),970,225);
+  ctx.font="11px Segoe UI,Arial"; ctx.fillText("mais quente",916,52); ctx.fillText("mais fria",916,246);
+  ctx.save(); ctx.translate(992,150); ctx.rotate(-Math.PI/2); ctx.textAlign="center"; ctx.fillText("temperatura T",0,0); ctx.restore();
+}
+
+const playConvergenceButton=document.getElementById("playConvergence");
+const convergenceStatus=document.getElementById("convergenceStatus");
+const sorProgress=document.getElementById("sorProgress");
+function drawConvergence(stepper,totalSweeps) {
+  drawHeatmap({
+    nx:stepper.nx,
+    ny:stepper.ny,
+    values:stepper.values,
+    metrics:{minTemperature:0,maxTemperature:Math.log(3200)},
+  },"convergenceMap",`Varredura SOR: ${stepper.sweeps} / ${totalSweeps}`);
+}
+function animateConvergence() {
+  if(!lastSolutionResult) return;
+  const stepper=globalThis.createLaplaceStepper();
+  const totalSweeps=lastSolutionResult.metrics.sweeps;
+  const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  sorProgress.max=totalSweeps; sorProgress.value=0;
+  drawConvergence(stepper,totalSweeps);
+  playConvergenceButton.disabled=true;
+  convergenceStatus.textContent=`Execução: 0 de ${totalSweeps} varreduras.`;
+
+  function frame() {
+    const progress=stepper.step(reducedMotion?Math.ceil(totalSweeps/6):2);
+    sorProgress.value=progress.sweeps;
+    drawConvergence(stepper,totalSweeps);
+    if(progress.done) {
+      playConvergenceButton.disabled=false;
+      convergenceStatus.textContent=`Concluído: ${progress.sweeps} varreduras SOR.`;
+      return;
+    }
+    if(reducedMotion || progress.sweeps%96===0 || progress.done) convergenceStatus.textContent=`Varredura ${progress.sweeps} de ${totalSweeps}.`;
+    if(reducedMotion) setTimeout(()=>requestAnimationFrame(frame),400);
+    else requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+playConvergenceButton.addEventListener("click",animateConvergence);
+
+button.addEventListener("click", () => {
+  button.disabled=true; statusLine.textContent="Calculando a solução…";
+  requestAnimationFrame(() => setTimeout(() => {
+    try {
+      const calculationStart=performance.now();
+      const result=solveLaplace();
+      const calculationMs=performance.now()-calculationStart;
+      lastSolutionResult=result;
+      const listStart=performance.now();
+      const printedRows=prepareFullList(result);
+      const listPreparationMs=performance.now()-listStart;
+      showMetrics(result,calculationMs,listPreparationMs); drawSurface(result); drawHeatmap(result);
+      pointMapResult=result; selectedGridPoint=null; drawInteractiveMap(result);
+      pointMapCanvas.setAttribute("aria-label","Planta interativa com 79 por 81 pontos. Clique em um quadrado ou use as setas do teclado para consultar as temperaturas.");
+      pointInfo.textContent="Selecione um quadrado para consultar suas coordenadas e temperaturas; com o foco na planta, use as setas do teclado para percorrer os pontos.";
+      const initialStepper=globalThis.createLaplaceStepper();
+      sorProgress.max=result.metrics.sweeps; sorProgress.value=0;
+      drawConvergence(initialStepper,result.metrics.sweeps);
+      convergenceStatus.textContent=`Pronto: ${result.metrics.sweeps} varreduras SOR.`;
+      resultPanel.hidden=false;
+      statusLine.textContent=`Concluído: ${printedRows.toLocaleString("pt-BR")} temperaturas; cálculo em ${fmt(calculationMs,2)} ms.`;
+    } catch (error) {
+      statusLine.textContent=`O cálculo não foi concluído: ${error.message}`;
+    } finally { button.disabled=false; }
+  },40));
+});
+
+document.getElementById("downloadCsv").addEventListener("click", () => {
+  const blob=new Blob(["\uFEFF"+csvContent],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob), link=document.createElement("a");
+  link.href=url; link.download="temperaturas_internas_6083.csv"; link.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
