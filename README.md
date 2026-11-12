@@ -2,6 +2,8 @@
 
 Aplicação acadêmica para calcular e visualizar a distribuição estacionária de temperatura em uma placa retangular. A solução utiliza diferenças finitas e o método de sobrerrelaxação sucessiva (SOR), implementados em JavaScript sem bibliotecas externas.
 
+![Tela real da aplicação de Cálculo Numérico](app_screenshot.png)
+
 ## Como abrir
 
 1. Baixe o projeto pelo botão **Code → Download ZIP** do GitHub e extraia os arquivos.
@@ -21,6 +23,8 @@ A página funciona localmente, sem instalação de pacotes, servidor ou conexão
 - Código do método disponível na própria página.
 
 ## Problema e método
+
+Em regime estacionário, as temperaturas deixam de variar no tempo. Sem fontes de calor no interior, a equação de Laplace relaciona cada ponto aos seus vizinhos. As quatro bordas têm valores prescritos; o algoritmo calcula os pontos internos.
 
 Resolve-se a equação de Laplace no domínio $1<x<40$, $0<y<40$:
 
@@ -48,6 +52,8 @@ O sistema tem 6.083 incógnitas internas. Os 316 pontos de borda recebem os valo
 
 A referência analítica é $T(x,y)=\ln(x^2+y^2)$. Os erros são calculados sobre os pontos internos. A animação acompanha as iterações numéricas; a equação modela o estado estacionário.
 
+Os valores de $T$ são apresentados sem unidade física: o enunciado fornece funções de contorno, mas não estabelece graus Celsius ou outra unidade. No mapa, os tons mais escuros representam os valores maiores.
+
 ## Resultados de referência
 
 | Medida | Valor |
@@ -62,27 +68,26 @@ A referência analítica é $T(x,y)=\ln(x^2+y^2)$. Os erros são calculados sobr
 
 O tempo de execução é medido a cada cálculo e depende do computador e do navegador.
 
-## Código e atualização da página
+## Executar o JavaScript no console do navegador
 
-O algoritmo também pode ser executado no terminal, com Node.js instalado:
+1. Abra `index.html` no navegador.
+2. Abra o arquivo [solve_laplace.js](solve_laplace.js), copie todo o conteúdo e cole no **Console** das ferramentas do navegador (F12).
+3. Pressione **Enter**. O cálculo é executado e as 6.083 temperaturas internas são impressas no console.
+
+O arquivo é autocontido e pode ser colado no console de qualquer página. Ao executar o código novamente, ele refaz o cálculo. Na página do aplicativo, `solveLaplace().metrics` também mostra as métricas sem imprimir a lista completa.
+
+Se Node.js já estiver instalado, o mesmo algoritmo pode ser executado no terminal:
 
 ```sh
 node solve_laplace.js
 ```
 
-Para atualizar a página após editar o algoritmo ou o modelo HTML, use Python 3:
-
-```sh
-python build.py
-```
-
-No Windows, também é possível usar `py build.py`. O gerador utiliza apenas a biblioteca padrão do Python e incorpora o algoritmo, os estilos e a imagem institucional em `index.html`.
-
 ```text
-index.html          Página pronta para abrir
-solve_laplace.js     Algoritmo numérico
-build.py            Modelo da página e gerador
-univasf.png         Marca institucional
+index.html           Aplicação pronta para abrir
+solve_laplace.js     Algoritmo puro, executável no console
+univasf.png          Marca institucional
+app_screenshot.png   Captura real da aplicação
+campus_petrolina.jpg Fotografia do campus
 ```
 
 ## Discentes
@@ -95,3 +100,9 @@ univasf.png         Marca institucional
 Disciplina: **MATM0048 — Cálculo Numérico**. Professor: **Sergio Floquet**. Universidade Federal do Vale do São Francisco — **UNIVASF**.
 
 A identidade visual utiliza a marca institucional e o [manual de identidade visual da UNIVASF](https://portais.univasf.edu.br/comunicacao/ManualdeIdentidadeVisualUniversidadeFederaldoValedoSoFranciscoUnivasf.pdf).
+
+### Imagem da universidade
+
+<img src="campus_petrolina.jpg" alt="Entrada da UNIVASF em Petrolina" width="560">
+
+Campus Petrolina. Fotografia de [A. Júnior, disponibilizada no Wikimedia Commons](https://commons.wikimedia.org/wiki/File:UNIVASF_-_Universidade_Federal_do_Vale_do_S%C3%A3o_Francisco_-_Petrolina,_Pernambuco.jpg), sob a licença [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/). A imagem não foi alterada.

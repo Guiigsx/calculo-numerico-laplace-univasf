@@ -1,3 +1,4 @@
+(function () {
 "use strict";
 
 const X0 = 1.0;
@@ -187,9 +188,10 @@ function clockMilliseconds() {
     : Date.now();
 }
 
-if (typeof document === "undefined") {
+if (typeof document === "undefined" || document.currentScript === null) {
   const start = clockMilliseconds();
   const result = solveLaplace();
   const calculationMs = clockMilliseconds() - start;
   printResults(result, calculationMs);
 }
+})();
