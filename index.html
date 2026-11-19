@@ -82,6 +82,12 @@
     .panel-title h3 { margin:0; color:var(--navy); font-size:16px; }
     .panel-kicker { white-space:nowrap; padding:5px 9px; background:var(--pale-blue); color:#14608d; border-radius:999px; font-size:11px; font-weight:700; }
     canvas.chart { display:block; width:100%; height:auto; border:1px solid #e1e8ed; border-radius:10px; background:#fff; }
+    #surface { cursor:grab; touch-action:none; }
+    #surface:active { cursor:grabbing; }
+    .surface-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 11px; }
+    .surface-controls span { margin-right:auto; color:var(--muted); font-size:12px; }
+    .surface-controls button { padding:7px 11px; font-size:12px; box-shadow:none; }
+    .surface-readout { min-height:31px; margin:10px 2px 0; color:var(--navy); font-size:13px; font-variant-numeric:tabular-nums; }
     .point-map-panel { margin-top:16px; }
     .point-readout { display:flex; align-items:center; flex-wrap:wrap; gap:7px 18px; min-height:48px; margin:0 0 12px; padding:10px 13px; border-left:3px solid var(--blue); border-radius:8px; background:var(--pale-blue); color:var(--ink); font-size:13px; font-variant-numeric:tabular-nums; }
     .point-readout strong { color:var(--navy); }
@@ -208,8 +214,15 @@
     <div class="section-head"><h2>Visualização da solução</h2></div>
     <div class="grid-panels">
       <article class="panel">
-        <div class="panel-title"><div><h3>Superfície tridimensional</h3></div><span class="panel-kicker">Perspectiva isométrica</span></div>
-        <canvas id="surface" class="chart" width="1000" height="500" aria-label="Superfície tridimensional da temperatura, com os quatro cantos da placa identificados"></canvas>
+        <div class="panel-title"><div><h3>Superfície tridimensional</h3></div><span class="panel-kicker">Vista interativa</span></div>
+        <div class="surface-controls">
+          <span>Arraste para girar · role para ampliar · passe o cursor para consultar</span>
+          <button id="surfaceZoomOut" type="button" aria-label="Afastar a vista 3D">−</button>
+          <button id="surfaceZoomIn" type="button" aria-label="Aproximar a vista 3D">+</button>
+          <button id="surfaceReset" type="button">Vista inicial</button>
+        </div>
+        <canvas id="surface" class="chart" width="1000" height="500" tabindex="0" aria-label="Superfície tridimensional interativa. Arraste para girar, use a rolagem ou os botões para ampliar, e passe o cursor para consultar os pontos."></canvas>
+        <div id="surfaceReadout" class="surface-readout" role="status" aria-live="polite">Execute o cálculo para explorar a superfície.</div>
       </article>
       <article class="panel">
         <div class="panel-title"><div><h3>Mapa de temperatura</h3></div><span class="panel-kicker">Escala contínua</span></div>
@@ -648,37 +661,67 @@ document.addEventListener("pointerdown",event=>{
 });
 window.addEventListener("scroll",()=>{ pointTooltip.hidden=true; },true);
 window.addEventListener("resize",()=>{ pointTooltip.hidden=true; });
+const surfaceCanvas=document.getElementById("surface");
+const surfaceReadout=document.getElementById("surfaceReadout");
+const surfaceView={yaw:Math.PI/4,tilt:0.435,zoom:1,result:null,points:[],cells:[],dragging:false,moved:false,lastX:0,lastY:0,frame:0};
 function drawSurface(result) {
-  const canvas=document.getElementById("surface"),ctx=canvas.getContext("2d");
+  surfaceView.result=result;
+  const canvas=surfaceCanvas,ctx=canvas.getContext("2d");
   const {nx,ny,values,metrics:m}=result;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const cx=canvas.width/2, sx=4.25, sy=1.85, sz=220, originY=100;
-  function normalized(i,j) { return (values[j*nx+i]-m.minTemperature)/(m.maxTemperature-m.minTemperature); }
-  function point(i,j) { return [cx+(i-j)*sx,originY+(i+j)*sy-normalized(i,j)*sz]; }
-  for(let diagonal=0;diagonal<nx+ny-2;diagonal++) {
-    const iMin=Math.max(0,diagonal-(ny-2)), iMax=Math.min(nx-2,diagonal);
-    for(let i=iMin;i<=iMax;i++) {
-      const j=diagonal-i;
-      const pts=[point(i,j),point(i+1,j),point(i+1,j+1),point(i,j+1)];
-      const avg=(values[j*nx+i]+values[j*nx+i+1]+values[(j+1)*nx+i+1]+values[(j+1)*nx+i])/4;
-      ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
-      for(let q=1;q<pts.length;q++) ctx.lineTo(pts[q][0],pts[q][1]);
-      ctx.closePath(); ctx.fillStyle=colorAt((avg-m.minTemperature)/(m.maxTemperature-m.minTemperature)); ctx.fill();
-      ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=.42; ctx.stroke();
-    }
+  const sin=Math.sin(surfaceView.yaw),cos=Math.cos(surfaceView.yaw);
+  const scale=6.01*surfaceView.zoom, rise=220*surfaceView.zoom;
+  const cx=470,cy=210,range=m.maxTemperature-m.minTemperature;
+  const points=new Array(nx*ny),cells=[];
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++) {
+    const u=i-(nx-1)/2,v=j-(ny-1)/2,depth=u*sin+v*cos;
+    const p=j*nx+i;
+    const x=scale*(u*cos-v*sin),y=scale*surfaceView.tilt*depth-(values[p]-m.minTemperature)/range*rise;
+    points[p]={x,y};
+    minX=Math.min(minX,x); maxX=Math.max(maxX,x);
+    minY=Math.min(minY,y); maxY=Math.max(maxY,y);
   }
-  function corner(i,j,label,dx,dy) {
-    const p=point(i,j); ctx.beginPath(); ctx.arc(p[0],p[1],4,0,2*Math.PI); ctx.fillStyle="#17324d"; ctx.fill();
-    ctx.font="bold 13px Segoe UI, Arial"; ctx.textAlign="center"; ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,.94)"; ctx.strokeText(label,p[0]+dx,p[1]+dy); ctx.fillStyle="#17324d"; ctx.fillText(label,p[0]+dx,p[1]+dy);
+  const shiftX=cx-(minX+maxX)/2,shiftY=cy-(minY+maxY)/2;
+  for(const point of points) { point.x+=shiftX; point.y+=shiftY; }
+  for(let j=0;j<ny-1;j++) for(let i=0;i<nx-1;i++) {
+    const u=i+0.5-(nx-1)/2,v=j+0.5-(ny-1)/2;
+    cells.push({i,j,depth:u*sin+v*cos});
   }
-  corner(0,0,"(1, 0)",0,-15);
-  corner(nx-1,0,"(40, 0)",29,-2);
-  corner(0,ny-1,"(1, 40)",-31,-2);
-  corner(nx-1,ny-1,"(40, 40)",0,23);
-  ctx.fillStyle="#263746"; ctx.font="bold 14px Segoe UI, Arial"; ctx.textAlign="center";
-  ctx.fillText("Eixo x: 1 → 40",cx+206,405);
-  ctx.fillText("Eixo y: 0 → 40",cx-207,405);
-  ctx.fillText("T",cx+440,90);
+  cells.sort((a,b)=>a.depth-b.depth);
+  surfaceView.points=points;
+  surfaceView.cells=cells;
+  for(const {i,j} of cells) {
+    const p=j*nx+i,ids=[p,p+1,p+nx+1,p+nx];
+    const avg=(values[ids[0]]+values[ids[1]]+values[ids[2]]+values[ids[3]])/4;
+    ctx.beginPath(); ctx.moveTo(points[ids[0]].x,points[ids[0]].y);
+    for(let q=1;q<4;q++) ctx.lineTo(points[ids[q]].x,points[ids[q]].y);
+    ctx.closePath(); ctx.fillStyle=colorAt((avg-m.minTemperature)/range); ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=.42; ctx.stroke();
+  }
+  function corner(i,j,label) {
+    const p=points[j*nx+i],dx=p.x<cx-25?-32:p.x>cx+25?32:0,dy=p.y<cy-35?-13:20;
+    ctx.beginPath(); ctx.arc(p.x,p.y,4,0,2*Math.PI); ctx.fillStyle="#17324d"; ctx.fill();
+    ctx.font="bold 13px Segoe UI, Arial"; ctx.textAlign="center"; ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,.94)";
+    ctx.strokeText(label,p.x+dx,p.y+dy); ctx.fillStyle="#17324d"; ctx.fillText(label,p.x+dx,p.y+dy);
+  }
+  corner(0,0,"(1, 0)");
+  corner(nx-1,0,"(40, 0)");
+  corner(0,ny-1,"(1, 40)");
+  corner(nx-1,ny-1,"(40, 40)");
+  ctx.fillStyle="#263746"; ctx.font="bold 13px Segoe UI, Arial";
+  function axis(label,dx,dy) {
+    const x=500,y=420,length=58,endX=x+dx*length,endY=y+dy*length;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(endX,endY); ctx.strokeStyle="#526271"; ctx.lineWidth=2; ctx.stroke();
+    const angle=Math.atan2(dy,dx);
+    ctx.beginPath(); ctx.moveTo(endX,endY); ctx.lineTo(endX-8*Math.cos(angle-0.5),endY-8*Math.sin(angle-0.5));
+    ctx.moveTo(endX,endY); ctx.lineTo(endX-8*Math.cos(angle+0.5),endY-8*Math.sin(angle+0.5)); ctx.stroke();
+    ctx.textAlign="center"; ctx.fillText(label,endX+dx*17,endY+dy*17+5);
+  }
+  axis("x",cos,sin*surfaceView.tilt);
+  axis("y",-sin,cos*surfaceView.tilt);
+  axis("T",0,-1);
+  ctx.beginPath(); ctx.arc(500,420,3,0,2*Math.PI); ctx.fill();
   const grad=ctx.createLinearGradient(0,55,0,220);
   colorStops.forEach((_,i)=>grad.addColorStop(i/(colorStops.length-1),colorAt(1-i/(colorStops.length-1))));
   ctx.fillStyle=grad; ctx.fillRect(945,65,18,160); ctx.strokeStyle="#526271"; ctx.strokeRect(945,65,18,160);
@@ -687,6 +730,89 @@ function drawSurface(result) {
   ctx.font="11px Segoe UI,Arial"; ctx.fillText("mais quente",916,52); ctx.fillText("mais fria",916,246);
   ctx.save(); ctx.translate(992,150); ctx.rotate(-Math.PI/2); ctx.textAlign="center"; ctx.fillText("temperatura T",0,0); ctx.restore();
 }
+function queueSurfaceDraw() {
+  if(surfaceView.frame || !surfaceView.result) return;
+  surfaceView.frame=requestAnimationFrame(()=>{
+    surfaceView.frame=0;
+    drawSurface(surfaceView.result);
+  });
+}
+function surfaceCoordinates(event) {
+  const rect=surfaceCanvas.getBoundingClientRect();
+  return {x:(event.clientX-rect.left)*surfaceCanvas.width/rect.width,y:(event.clientY-rect.top)*surfaceCanvas.height/rect.height};
+}
+function insideTriangle(p,a,b,c) {
+  const cross=(q,r)=>(r.x-q.x)*(p.y-q.y)-(r.y-q.y)*(p.x-q.x);
+  const x=cross(a,b),y=cross(b,c),z=cross(c,a);
+  return (x>=0&&y>=0&&z>=0)||(x<=0&&y<=0&&z<=0);
+}
+function inspectSurface(event) {
+  const result=surfaceView.result;
+  if(!result) return;
+  const {x,y}=surfaceCoordinates(event),{nx,values}=result,points=surfaceView.points;
+  for(let n=surfaceView.cells.length-1;n>=0;n--) {
+    const {i,j}=surfaceView.cells[n],p=j*nx+i,ids=[p,p+1,p+nx+1,p+nx];
+    const [a,b,c,d]=ids.map(id=>points[id]);
+    if(!insideTriangle({x,y},a,b,c)&&!insideTriangle({x,y},a,c,d)) continue;
+    let nearest=ids[0],distance=Infinity;
+    for(const id of ids) {
+      const delta=(points[id].x-x)**2+(points[id].y-y)**2;
+      if(delta<distance) { distance=delta; nearest=id; }
+    }
+    const ni=nearest%nx,nj=Math.floor(nearest/nx),px=result.xAt(ni),py=result.yAt(nj);
+    const numerical=values[nearest],analytical=Math.log(px*px+py*py);
+    surfaceReadout.textContent=`Ponto (${fmt(px,1)}; ${fmt(py,1)}) · T numérica: ${fmt(numerical,8)} · T analítica: ${fmt(analytical,8)} · Erro: ${fmt(Math.abs(numerical-analytical),8)}`;
+    return;
+  }
+}
+surfaceCanvas.addEventListener("pointerdown",event=>{
+  if(event.button!==0 || !surfaceView.result) return;
+  surfaceView.dragging=true; surfaceView.moved=false;
+  surfaceView.lastX=event.clientX; surfaceView.lastY=event.clientY;
+  surfaceCanvas.setPointerCapture(event.pointerId);
+});
+surfaceCanvas.addEventListener("pointermove",event=>{
+  if(!surfaceView.dragging) { inspectSurface(event); return; }
+  const dx=event.clientX-surfaceView.lastX,dy=event.clientY-surfaceView.lastY;
+  if(Math.abs(dx)+Math.abs(dy)>2) surfaceView.moved=true;
+  surfaceView.yaw+=dx*0.011;
+  surfaceView.tilt=Math.max(0.18,Math.min(0.82,surfaceView.tilt+dy*0.003));
+  surfaceView.lastX=event.clientX; surfaceView.lastY=event.clientY;
+  queueSurfaceDraw();
+});
+surfaceCanvas.addEventListener("pointerup",event=>{
+  if(!surfaceView.dragging) return;
+  surfaceView.dragging=false;
+  if(surfaceCanvas.hasPointerCapture(event.pointerId)) surfaceCanvas.releasePointerCapture(event.pointerId);
+  if(!surfaceView.moved) inspectSurface(event);
+});
+surfaceCanvas.addEventListener("pointercancel",()=>{surfaceView.dragging=false;});
+function zoomSurface(factor) {
+  surfaceView.zoom=Math.max(0.65,Math.min(2.2,surfaceView.zoom*factor));
+  queueSurfaceDraw();
+}
+surfaceCanvas.addEventListener("wheel",event=>{
+  if(!surfaceView.result) return;
+  event.preventDefault();
+  zoomSurface(Math.exp(-event.deltaY*0.001));
+},{passive:false});
+document.getElementById("surfaceZoomIn").addEventListener("click",()=>zoomSurface(1.2));
+document.getElementById("surfaceZoomOut").addEventListener("click",()=>zoomSurface(1/1.2));
+document.getElementById("surfaceReset").addEventListener("click",()=>{
+  surfaceView.yaw=Math.PI/4; surfaceView.tilt=0.435; surfaceView.zoom=1;
+  queueSurfaceDraw();
+});
+surfaceCanvas.addEventListener("keydown",event=>{
+  if(!surfaceView.result) return;
+  if(event.key==="ArrowLeft") surfaceView.yaw-=0.15;
+  else if(event.key==="ArrowRight") surfaceView.yaw+=0.15;
+  else if(event.key==="ArrowUp") surfaceView.tilt=Math.max(0.18,surfaceView.tilt-0.05);
+  else if(event.key==="ArrowDown") surfaceView.tilt=Math.min(0.82,surfaceView.tilt+0.05);
+  else if(event.key==="+" || event.key==="=") zoomSurface(1.2);
+  else if(event.key==="-") zoomSurface(1/1.2);
+  else return;
+  event.preventDefault(); queueSurfaceDraw();
+});
 
 const playConvergenceButton=document.getElementById("playConvergence");
 const convergenceStatus=document.getElementById("convergenceStatus");
@@ -738,6 +864,7 @@ button.addEventListener("click", () => {
       const printedRows=prepareFullList(result);
       const listPreparationMs=performance.now()-listStart;
       showMetrics(result,calculationMs,listPreparationMs); drawSurface(result); drawHeatmap(result);
+      surfaceReadout.textContent="Arraste para girar a placa e passe o cursor sobre a superfície para consultar os pontos.";
       pointMapResult=result; selectedGridPoint=null; drawInteractiveMap(result);
       pointMapCanvas.setAttribute("aria-label","Planta interativa com 79 por 81 pontos. Clique em um quadrado ou use as setas do teclado para consultar as temperaturas.");
       pointInfo.textContent="Selecione um quadrado para consultar suas coordenadas e temperaturas; com o foco na planta, use as setas do teclado para percorrer os pontos.";

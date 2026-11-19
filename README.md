@@ -15,7 +15,7 @@ A página funciona localmente, sem instalação de pacotes, servidor ou conexão
 ## Recursos
 
 - Indicadores da malha, convergência, erros e tempo de execução.
-- Superfície tridimensional e mapa de temperatura.
+- Superfície tridimensional que pode ser girada, ampliada e consultada ponto a ponto, além do mapa de temperatura.
 - Animação das varreduras SOR.
 - Planta interativa com os 6.399 pontos da malha: seleção por clique ou pelas setas do teclado.
 - Caixa junto ao ponto selecionado com coordenadas, temperatura numérica, temperatura analítica e erro absoluto.
