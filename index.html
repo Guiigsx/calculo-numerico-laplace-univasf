@@ -775,7 +775,7 @@ surfaceCanvas.addEventListener("pointermove",event=>{
   if(!surfaceView.dragging) { inspectSurface(event); return; }
   const dx=event.clientX-surfaceView.lastX,dy=event.clientY-surfaceView.lastY;
   if(Math.abs(dx)+Math.abs(dy)>2) surfaceView.moved=true;
-  surfaceView.yaw+=dx*0.011;
+  surfaceView.yaw-=dx*0.006;
   surfaceView.tilt=Math.max(0.18,Math.min(0.82,surfaceView.tilt+dy*0.003));
   surfaceView.lastX=event.clientX; surfaceView.lastY=event.clientY;
   queueSurfaceDraw();
@@ -804,8 +804,8 @@ document.getElementById("surfaceReset").addEventListener("click",()=>{
 });
 surfaceCanvas.addEventListener("keydown",event=>{
   if(!surfaceView.result) return;
-  if(event.key==="ArrowLeft") surfaceView.yaw-=0.15;
-  else if(event.key==="ArrowRight") surfaceView.yaw+=0.15;
+  if(event.key==="ArrowLeft") surfaceView.yaw+=0.15;
+  else if(event.key==="ArrowRight") surfaceView.yaw-=0.15;
   else if(event.key==="ArrowUp") surfaceView.tilt=Math.max(0.18,surfaceView.tilt-0.05);
   else if(event.key==="ArrowDown") surfaceView.tilt=Math.min(0.82,surfaceView.tilt+0.05);
   else if(event.key==="+" || event.key==="=") zoomSurface(1.2);
