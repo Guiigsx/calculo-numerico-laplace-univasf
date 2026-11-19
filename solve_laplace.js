@@ -157,6 +157,24 @@ function printResults(result, calculationMs) {
   console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms.`);
 }
 
+function printAllPoints(result) {
+  console.log("N | x | y | T numérica | T analítica | Erro absoluto");
+  let n = 0;
+  for (let j = 1; j < result.ny - 1; j += 1) {
+    for (let i = 1; i < result.nx - 1; i += 1) {
+      n += 1;
+      const x = result.xAt(i);
+      const y = result.yAt(j);
+      const numerical = result.values[j * result.nx + i];
+      const analytical = exact(x, y);
+      const error = Math.abs(numerical - analytical);
+      console.log(`${String(n).padStart(4, "0")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +
+        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);
+    }
+  }
+  console.log(`Pontos internos impressos: ${n}.`);
+}
+
 if (typeof globalThis !== "undefined") {
   globalThis.solveLaplace = solveLaplace;
   globalThis.createLaplaceStepper = createLaplaceStepper;
@@ -177,5 +195,6 @@ if (typeof document === "undefined" || document.currentScript === null) {
   const result = solveLaplace();
   const calculationMs = clockMilliseconds() - start;
   printResults(result, calculationMs);
+  // printAllPoints(result);
 }
 })();
