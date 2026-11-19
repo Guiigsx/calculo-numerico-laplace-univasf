@@ -242,15 +242,9 @@
         <thead><tr><th>x</th><th>y</th><th>T numérica</th><th>T analítica</th><th>Erro absoluto</th></tr></thead>
         <tbody id="samples"></tbody>
       </table></div>
+      <div class="control-row"><button class="small-button" id="downloadCsv" type="button">Baixar resultados em CSV</button></div>
     </section>
 
-    <details class="data-panel">
-      <summary>Lista completa das 6.083 temperaturas internas</summary>
-      <div class="details-body">
-        <button class="small-button" id="downloadCsv" type="button">Baixar resultados em CSV</button>
-        <div class="results-scroll"><pre id="allRows"></pre></div>
-      </div>
-    </details>
     <details class="data-panel">
       <summary>Ver o código JavaScript puro</summary>
       <div class="details-body"><div class="results-scroll"><pre id="source"></pre></div></div>
@@ -416,23 +410,7 @@ function printResults(result, calculationMs) {
     "T analítica": s.analytical.toFixed(12),
     "Erro absoluto": s.absoluteError.toExponential(3),
   })));
-  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms (sem contar a impressão da lista).`);
-  console.log("\nLISTA COMPLETA DAS TEMPERATURAS INTERNAS");
-  console.log("N | x | y | T numérica | T analítica | Erro absoluto");
-  let rowNumber = 0;
-  for (let j = 1; j < result.ny - 1; j += 1) {
-    for (let i = 1; i < result.nx - 1; i += 1) {
-      rowNumber += 1;
-      const x = result.xAt(i);
-      const y = result.yAt(j);
-      const numerical = result.values[j * result.nx + i];
-      const analytical = exact(x, y);
-      const error = Math.abs(numerical - analytical);
-      console.log(`${String(rowNumber).padStart(4, "0")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +
-        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);
-    }
-  }
-  console.log(`Resultados impressos: ${rowNumber}.`);
+  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms.`);
 }
 
 if (typeof globalThis !== "undefined") {
@@ -450,17 +428,16 @@ function clockMilliseconds() {
     : Date.now();
 }
 
-if (typeof document === "undefined") {
+if (typeof document === "undefined" || document.currentScript === null) {
   const start = clockMilliseconds();
   const result = solveLaplace();
   const calculationMs = clockMilliseconds() - start;
   printResults(result, calculationMs);
 }
-
 </script>
 <script>
 "use strict";
-const sourceText = "\"use strict\";\n\nconst X0 = 1.0;\nconst X1 = 40.0;\nconst Y0 = 0.0;\nconst Y1 = 40.0;\nconst H = 0.5;\nconst K = 0.5;\nconst OMEGA = 1.92;\nconst TOL = 1e-12;\nconst MAX_SWEEPS = 20000;\n\nfunction exact(x, y) {\n  return Math.log(x * x + y * y);\n}\n\nfunction createLaplaceStepper() {\n  const nx = Math.round((X1 - X0) / H) + 1;\n  const ny = Math.round((Y1 - Y0) / K) + 1;\n  const values = new Float64Array(nx * ny);\n  const index = (i, j) => j * nx + i;\n  const xAt = (i) => X0 + i * H;\n  const yAt = (j) => Y0 + j * K;\n\n  for (let j = 0; j < ny; j += 1) {\n    values[index(0, j)] = Math.log(1 + yAt(j) ** 2);\n    values[index(nx - 1, j)] = Math.log(1600 + yAt(j) ** 2);\n  }\n  for (let i = 0; i < nx; i += 1) {\n    values[index(i, 0)] = 2 * Math.log(xAt(i));\n    values[index(i, ny - 1)] = Math.log(xAt(i) ** 2 + 1600);\n  }\n\n  let sweeps = 0;\n  let maxUpdate = Infinity;\n  function step(maxSteps = 1) {\n    let completed = 0;\n    while (completed < maxSteps && sweeps < MAX_SWEEPS && maxUpdate >= TOL) {\n      maxUpdate = 0;\n      for (let color = 0; color <= 1; color += 1) {\n        for (let j = 1; j < ny - 1; j += 1) {\n          for (let i = 1; i < nx - 1; i += 1) {\n            if (((i + j) & 1) !== color) continue;\n            const p = index(i, j);\n            const average = 0.25 * (\n              values[p - 1] + values[p + 1] +\n              values[p - nx] + values[p + nx]\n            );\n            const next = values[p] + OMEGA * (average - values[p]);\n            const change = Math.abs(next - values[p]);\n            if (change > maxUpdate) maxUpdate = change;\n            values[p] = next;\n          }\n        }\n      }\n      sweeps += 1;\n      completed += 1;\n    }\n    return { sweeps, maxUpdate, done: sweeps >= MAX_SWEEPS || maxUpdate < TOL };\n  }\n\n  return { nx, ny, values, xAt, yAt, step, get sweeps() { return sweeps; }, get maxUpdate() { return maxUpdate; } };\n}\n\nfunction solveLaplace() {\n  const stepper = createLaplaceStepper();\n  let progress = stepper.step(MAX_SWEEPS);\n  const { nx, ny, values, xAt, yAt } = stepper;\n  const sweeps = progress.sweeps;\n  const maxUpdate = progress.maxUpdate;\n  const index = (i, j) => j * nx + i;\n\n  let maxResidual = 0;\n  let maxError = 0;\n  let sumError = 0;\n  let sumSquaredError = 0;\n  let maxErrorI = 0;\n  let maxErrorJ = 0;\n  let minTemperature = Infinity;\n  let maxTemperature = -Infinity;\n\n  for (let j = 0; j < ny; j += 1) {\n    for (let i = 0; i < nx; i += 1) {\n      const value = values[index(i, j)];\n      minTemperature = Math.min(minTemperature, value);\n      maxTemperature = Math.max(maxTemperature, value);\n      if (i === 0 || i === nx - 1 || j === 0 || j === ny - 1) continue;\n\n      const p = index(i, j);\n      const residual = Math.abs(\n        4 * values[p] - values[p - 1] - values[p + 1] -\n        values[p - nx] - values[p + nx]\n      );\n      maxResidual = Math.max(maxResidual, residual);\n\n      const error = Math.abs(values[p] - exact(xAt(i), yAt(j)));\n      sumError += error;\n      sumSquaredError += error * error;\n      if (error > maxError) {\n        maxError = error;\n        maxErrorI = i;\n        maxErrorJ = j;\n      }\n    }\n  }\n\n  const interiorUnknowns = (nx - 2) * (ny - 2);\n  const metrics = {\n    nx,\n    ny,\n    interiorUnknowns,\n    sweeps,\n    omega: OMEGA,\n    maxUpdate,\n    maxResidual,\n    maxAbsError: maxError,\n    meanAbsError: sumError / interiorUnknowns,\n    rmse: Math.sqrt(sumSquaredError / interiorUnknowns),\n    maxErrorX: xAt(maxErrorI),\n    maxErrorY: yAt(maxErrorJ),\n    minTemperature,\n    maxTemperature,\n  };\n\n  const sampleCoordinates = [\n    [1.5, 1.5], [2.0, 1.0], [5.0, 5.0],\n    [10.0, 10.0], [20.0, 20.0], [39.5, 39.5],\n  ];\n  const samples = sampleCoordinates.map(([x, y]) => {\n    const i = Math.round((x - X0) / H);\n    const j = Math.round((y - Y0) / K);\n    const numerical = values[index(i, j)];\n    const analytical = exact(x, y);\n    return { x, y, numerical, analytical, absoluteError: Math.abs(numerical - analytical) };\n  });\n\n  return { nx, ny, values, metrics, samples, xAt, yAt };\n}\n\nfunction printResults(result, calculationMs) {\n  const m = result.metrics;\n  console.log(\"Equação de Laplace — diferenças finitas e SOR (JavaScript puro)\");\n  console.log(`Malha: ${m.nx} × ${m.ny} nós; ${m.interiorUnknowns} incógnitas internas.`);\n  console.log(`SOR: ω = ${m.omega}; ${m.sweeps} varreduras; maior atualização = ${m.maxUpdate.toExponential(3)}.`);\n  console.log(`Resíduo máximo do stencil: ${m.maxResidual.toExponential(3)}.`);\n  console.log(`Erro máximo: ${m.maxAbsError.toFixed(12)} em (${m.maxErrorX}, ${m.maxErrorY}).`);\n  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}; RMSE: ${m.rmse.toFixed(12)}.`);\n  console.log(\"Comparação em pontos selecionados:\");\n  console.table(result.samples.map((s) => ({\n    x: s.x,\n    y: s.y,\n    \"T numérica\": s.numerical.toFixed(12),\n    \"T analítica\": s.analytical.toFixed(12),\n    \"Erro absoluto\": s.absoluteError.toExponential(3),\n  })));\n  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms (sem contar a impressão da lista).`);\n  console.log(\"\\nLISTA COMPLETA DAS TEMPERATURAS INTERNAS\");\n  console.log(\"N | x | y | T numérica | T analítica | Erro absoluto\");\n  let rowNumber = 0;\n  for (let j = 1; j < result.ny - 1; j += 1) {\n    for (let i = 1; i < result.nx - 1; i += 1) {\n      rowNumber += 1;\n      const x = result.xAt(i);\n      const y = result.yAt(j);\n      const numerical = result.values[j * result.nx + i];\n      const analytical = exact(x, y);\n      const error = Math.abs(numerical - analytical);\n      console.log(`${String(rowNumber).padStart(4, \"0\")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +\n        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);\n    }\n  }\n  console.log(`Resultados impressos: ${rowNumber}.`);\n}\n\nif (typeof globalThis !== \"undefined\") {\n  globalThis.solveLaplace = solveLaplace;\n  globalThis.createLaplaceStepper = createLaplaceStepper;\n}\n\nif (typeof module !== \"undefined\" && module.exports) {\n  module.exports = { solveLaplace, exact, createLaplaceStepper };\n}\n\nfunction clockMilliseconds() {\n  return typeof performance !== \"undefined\" && typeof performance.now === \"function\"\n    ? performance.now()\n    : Date.now();\n}\n\nif (typeof document === \"undefined\") {\n  const start = clockMilliseconds();\n  const result = solveLaplace();\n  const calculationMs = clockMilliseconds() - start;\n  printResults(result, calculationMs);\n}\n";
+const sourceText = "(function () {\n\"use strict\";\n\nconst X0 = 1.0;\nconst X1 = 40.0;\nconst Y0 = 0.0;\nconst Y1 = 40.0;\nconst H = 0.5;\nconst K = 0.5;\nconst OMEGA = 1.92;\nconst TOL = 1e-12;\nconst MAX_SWEEPS = 20000;\n\nfunction exact(x, y) {\n  return Math.log(x * x + y * y);\n}\n\nfunction createLaplaceStepper() {\n  const nx = Math.round((X1 - X0) / H) + 1;\n  const ny = Math.round((Y1 - Y0) / K) + 1;\n  const values = new Float64Array(nx * ny);\n  const index = (i, j) => j * nx + i;\n  const xAt = (i) => X0 + i * H;\n  const yAt = (j) => Y0 + j * K;\n\n  for (let j = 0; j < ny; j += 1) {\n    values[index(0, j)] = Math.log(1 + yAt(j) ** 2);\n    values[index(nx - 1, j)] = Math.log(1600 + yAt(j) ** 2);\n  }\n  for (let i = 0; i < nx; i += 1) {\n    values[index(i, 0)] = 2 * Math.log(xAt(i));\n    values[index(i, ny - 1)] = Math.log(xAt(i) ** 2 + 1600);\n  }\n\n  let sweeps = 0;\n  let maxUpdate = Infinity;\n  function step(maxSteps = 1) {\n    let completed = 0;\n    while (completed < maxSteps && sweeps < MAX_SWEEPS && maxUpdate >= TOL) {\n      maxUpdate = 0;\n      for (let color = 0; color <= 1; color += 1) {\n        for (let j = 1; j < ny - 1; j += 1) {\n          for (let i = 1; i < nx - 1; i += 1) {\n            if (((i + j) & 1) !== color) continue;\n            const p = index(i, j);\n            const average = 0.25 * (\n              values[p - 1] + values[p + 1] +\n              values[p - nx] + values[p + nx]\n            );\n            const next = values[p] + OMEGA * (average - values[p]);\n            const change = Math.abs(next - values[p]);\n            if (change > maxUpdate) maxUpdate = change;\n            values[p] = next;\n          }\n        }\n      }\n      sweeps += 1;\n      completed += 1;\n    }\n    return { sweeps, maxUpdate, done: sweeps >= MAX_SWEEPS || maxUpdate < TOL };\n  }\n\n  return { nx, ny, values, xAt, yAt, step, get sweeps() { return sweeps; }, get maxUpdate() { return maxUpdate; } };\n}\n\nfunction solveLaplace() {\n  const stepper = createLaplaceStepper();\n  let progress = stepper.step(MAX_SWEEPS);\n  const { nx, ny, values, xAt, yAt } = stepper;\n  const sweeps = progress.sweeps;\n  const maxUpdate = progress.maxUpdate;\n  const index = (i, j) => j * nx + i;\n\n  let maxResidual = 0;\n  let maxError = 0;\n  let sumError = 0;\n  let sumSquaredError = 0;\n  let maxErrorI = 0;\n  let maxErrorJ = 0;\n  let minTemperature = Infinity;\n  let maxTemperature = -Infinity;\n\n  for (let j = 0; j < ny; j += 1) {\n    for (let i = 0; i < nx; i += 1) {\n      const value = values[index(i, j)];\n      minTemperature = Math.min(minTemperature, value);\n      maxTemperature = Math.max(maxTemperature, value);\n      if (i === 0 || i === nx - 1 || j === 0 || j === ny - 1) continue;\n\n      const p = index(i, j);\n      const residual = Math.abs(\n        4 * values[p] - values[p - 1] - values[p + 1] -\n        values[p - nx] - values[p + nx]\n      );\n      maxResidual = Math.max(maxResidual, residual);\n\n      const error = Math.abs(values[p] - exact(xAt(i), yAt(j)));\n      sumError += error;\n      sumSquaredError += error * error;\n      if (error > maxError) {\n        maxError = error;\n        maxErrorI = i;\n        maxErrorJ = j;\n      }\n    }\n  }\n\n  const interiorUnknowns = (nx - 2) * (ny - 2);\n  const metrics = {\n    nx,\n    ny,\n    interiorUnknowns,\n    sweeps,\n    omega: OMEGA,\n    maxUpdate,\n    maxResidual,\n    maxAbsError: maxError,\n    meanAbsError: sumError / interiorUnknowns,\n    rmse: Math.sqrt(sumSquaredError / interiorUnknowns),\n    maxErrorX: xAt(maxErrorI),\n    maxErrorY: yAt(maxErrorJ),\n    minTemperature,\n    maxTemperature,\n  };\n\n  const sampleCoordinates = [\n    [1.5, 1.5], [2.0, 1.0], [5.0, 5.0],\n    [10.0, 10.0], [20.0, 20.0], [39.5, 39.5],\n  ];\n  const samples = sampleCoordinates.map(([x, y]) => {\n    const i = Math.round((x - X0) / H);\n    const j = Math.round((y - Y0) / K);\n    const numerical = values[index(i, j)];\n    const analytical = exact(x, y);\n    return { x, y, numerical, analytical, absoluteError: Math.abs(numerical - analytical) };\n  });\n\n  return { nx, ny, values, metrics, samples, xAt, yAt };\n}\n\nfunction printResults(result, calculationMs) {\n  const m = result.metrics;\n  console.log(\"Equação de Laplace — diferenças finitas e SOR (JavaScript puro)\");\n  console.log(`Malha: ${m.nx} × ${m.ny} nós; ${m.interiorUnknowns} incógnitas internas.`);\n  console.log(`SOR: ω = ${m.omega}; ${m.sweeps} varreduras; maior atualização = ${m.maxUpdate.toExponential(3)}.`);\n  console.log(`Resíduo máximo do stencil: ${m.maxResidual.toExponential(3)}.`);\n  console.log(`Erro máximo: ${m.maxAbsError.toFixed(12)} em (${m.maxErrorX}, ${m.maxErrorY}).`);\n  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}; RMSE: ${m.rmse.toFixed(12)}.`);\n  console.log(\"Comparação em pontos selecionados:\");\n  console.table(result.samples.map((s) => ({\n    x: s.x,\n    y: s.y,\n    \"T numérica\": s.numerical.toFixed(12),\n    \"T analítica\": s.analytical.toFixed(12),\n    \"Erro absoluto\": s.absoluteError.toExponential(3),\n  })));\n  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms.`);\n}\n\nif (typeof globalThis !== \"undefined\") {\n  globalThis.solveLaplace = solveLaplace;\n  globalThis.createLaplaceStepper = createLaplaceStepper;\n}\n\nif (typeof module !== \"undefined\" && module.exports) {\n  module.exports = { solveLaplace, exact, createLaplaceStepper };\n}\n\nfunction clockMilliseconds() {\n  return typeof performance !== \"undefined\" && typeof performance.now === \"function\"\n    ? performance.now()\n    : Date.now();\n}\n\nif (typeof document === \"undefined\" || document.currentScript === null) {\n  const start = clockMilliseconds();\n  const result = solveLaplace();\n  const calculationMs = clockMilliseconds() - start;\n  printResults(result, calculationMs);\n}\n})();\n";
 const button = document.getElementById("run");
 const statusLine = document.getElementById("status");
 const resultPanel = document.getElementById("results");
@@ -483,7 +460,7 @@ function sciHtml(value) {
   return `${coefficient.replace(".", ",")} × 10<sup>${sign}${Math.abs(exponent)}</sup>`;
 }
 
-function showMetrics(result, calculationMs, listPreparationMs) {
+function showMetrics(result, calculationMs) {
   const m = result.metrics;
   const cards = [
     ["Pontos da malha", `${m.nx} × ${m.ny}`],
@@ -495,7 +472,6 @@ function showMetrics(result, calculationMs, listPreparationMs) {
     ["RMSE", fmt(m.rmse, 6)],
     ["Ponto de erro máximo", `(${fmt(m.maxErrorX,1)}; ${fmt(m.maxErrorY,1)})`],
     ["Tempo de cálculo", `${fmt(calculationMs,2)} ms`],
-    ["Preparação da lista", `${fmt(listPreparationMs,2)} ms`],
   ];
   document.getElementById("cards").innerHTML = cards.map(([label,value]) =>
     `<div class="card"><span>${label}</span><strong>${value}</strong></div>`).join("");
@@ -503,21 +479,20 @@ function showMetrics(result, calculationMs, listPreparationMs) {
     `<tr><td>${fmt(s.x,1)}</td><td>${fmt(s.y,1)}</td><td>${fmt(s.numerical,12)}</td><td>${fmt(s.analytical,12)}</td><td>${expfmt(s.absoluteError)}</td></tr>`).join("");
 }
 
-let csvContent = "";
-function prepareFullList(result) {
-  const lines = ["N | i | j | x | y | T numerica | T analitica | erro absoluto"];
+function createCsv(result) {
   const csvLines = ["N;i;j;x;y;T_numerica;T_analitica;erro_absoluto"];
   let n = 0;
-  for(let j=1;j<result.ny-1;j++) for(let i=1;i<result.nx-1;i++) {
-    n++;
-    const x=result.xAt(i), y=result.yAt(j), numerical=result.values[j*result.nx+i];
-    const analytical=Math.log(x*x+y*y), error=Math.abs(numerical-analytical);
-    lines.push(`${String(n).padStart(4,"0")} | ${i} | ${j} | ${fmt(x,1)} | ${fmt(y,1)} | ${fmt(numerical,12)} | ${fmt(analytical,12)} | ${expfmt(error)}`);
-    csvLines.push(`${n};${i};${j};${x.toFixed(1)};${y.toFixed(1)};${numerical.toFixed(12)};${analytical.toFixed(12)};${error.toExponential(12)}`);
+  for (let j = 1; j < result.ny - 1; j++) {
+    for (let i = 1; i < result.nx - 1; i++) {
+      n++;
+      const x = result.xAt(i), y = result.yAt(j);
+      const numerical = result.values[j * result.nx + i];
+      const analytical = Math.log(x * x + y * y);
+      const error = Math.abs(numerical - analytical);
+      csvLines.push([n, i, j, x.toFixed(1), y.toFixed(1), numerical.toFixed(12), analytical.toFixed(12), error.toExponential(12)].join(";"));
+    }
   }
-  csvContent=csvLines.join("\n");
-  document.getElementById("allRows").textContent=lines.join("\n");
-  return n;
+  return csvLines.join("\n");
 }
 
 const colorStops = [
@@ -860,10 +835,7 @@ button.addEventListener("click", () => {
       const result=solveLaplace();
       const calculationMs=performance.now()-calculationStart;
       lastSolutionResult=result;
-      const listStart=performance.now();
-      const printedRows=prepareFullList(result);
-      const listPreparationMs=performance.now()-listStart;
-      showMetrics(result,calculationMs,listPreparationMs); drawSurface(result); drawHeatmap(result);
+      showMetrics(result,calculationMs); drawSurface(result); drawHeatmap(result);
       surfaceReadout.textContent="Arraste para girar a placa e passe o cursor sobre a superfície para consultar os pontos.";
       pointMapResult=result; selectedGridPoint=null; drawInteractiveMap(result);
       pointMapCanvas.setAttribute("aria-label","Planta interativa com 79 por 81 pontos. Clique em um quadrado ou use as setas do teclado para consultar as temperaturas.");
@@ -873,7 +845,7 @@ button.addEventListener("click", () => {
       drawConvergence(initialStepper,result.metrics.sweeps);
       convergenceStatus.textContent=`Pronto: ${result.metrics.sweeps} varreduras SOR.`;
       resultPanel.hidden=false;
-      statusLine.textContent=`Concluído: ${printedRows.toLocaleString("pt-BR")} temperaturas; cálculo em ${fmt(calculationMs,2)} ms.`;
+      statusLine.textContent="Concluído: "+result.metrics.interiorUnknowns.toLocaleString("pt-BR")+" temperaturas; cálculo em "+fmt(calculationMs,2)+" ms.";
     } catch (error) {
       statusLine.textContent=`O cálculo não foi concluído: ${error.message}`;
     } finally { button.disabled=false; }
@@ -881,9 +853,12 @@ button.addEventListener("click", () => {
 });
 
 document.getElementById("downloadCsv").addEventListener("click", () => {
-  const blob=new Blob(["\uFEFF"+csvContent],{type:"text/csv;charset=utf-8"});
-  const url=URL.createObjectURL(blob), link=document.createElement("a");
-  link.href=url; link.download="temperaturas_internas_6083.csv"; link.click();
+  if (!lastSolutionResult) return;
+  const blob = new Blob(["\uFEFF" + createCsv(lastSolutionResult)], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob), link = document.createElement("a");
+  link.href = url;
+  link.download = "temperaturas_internas_6083.csv";
+  link.click();
   URL.revokeObjectURL(url);
 });
 </script>

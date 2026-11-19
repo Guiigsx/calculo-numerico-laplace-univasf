@@ -213,23 +213,7 @@ function printResults(result, calculationMs) {
     "T analítica": s.analytical.toFixed(12),
     "Erro absoluto": s.absoluteError.toExponential(3),
   })));
-  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms (sem contar a impressão da lista).`);
-  console.log("\nLISTA COMPLETA DAS TEMPERATURAS INTERNAS");
-  console.log("N | x | y | T numérica | T analítica | Erro absoluto");
-  let rowNumber = 0;
-  for (let j = 1; j < result.ny - 1; j += 1) {
-    for (let i = 1; i < result.nx - 1; i += 1) {
-      rowNumber += 1;
-      const x = result.xAt(i);
-      const y = result.yAt(j);
-      const numerical = result.values[j * result.nx + i];
-      const analytical = exact(x, y);
-      const error = Math.abs(numerical - analytical);
-      console.log(`${String(rowNumber).padStart(4, "0")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +
-        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);
-    }
-  }
-  console.log(`Resultados impressos: ${rowNumber}.`);
+  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms.`);
 }
 
 if (typeof globalThis !== "undefined") {
