@@ -1,38 +1,27 @@
-# Equação de Laplace — Cálculo Numérico · UNIVASF
+# Equação de Laplace em uma placa
 
-Aplicação acadêmica para calcular e visualizar a distribuição estacionária de temperatura em uma placa retangular. A solução utiliza diferenças finitas e o método de sobrerrelaxação sucessiva (SOR), implementados em JavaScript sem bibliotecas externas.
+Este projeto mostra a distribuição de temperatura em uma placa. O aplicativo calcula os valores em JavaScript puro e permite explorar o resultado em gráficos e em cada ponto da malha.
 
-![Tela real da aplicação de Cálculo Numérico](app_screenshot.png)
+**[Abrir o aplicativo](https://guiigsx.github.io/calculo-numerico-laplace-univasf/)**
 
-## Como abrir
+![Tela do aplicativo](imgs/app_screenshot.png)
 
-1. Baixe o projeto pelo botão **Code → Download ZIP** do GitHub e extraia os arquivos.
-2. Abra `index.html` em um navegador.
-3. Clique em **Executar cálculo**.
+## O que é possível fazer
 
-A página funciona localmente, sem instalação de pacotes, servidor ou conexão com a internet.
+- Calcular os valores de temperatura nos 6.083 pontos internos.
+- Consultar qualquer ponto da malha e comparar o valor calculado com a solução analítica.
+- Girar a superfície 3D, ver o mapa de temperatura e acompanhar as varreduras do método.
+- Consultar os erros e baixar a tabela de resultados em CSV.
 
-## Recursos
+## O cálculo
 
-- Indicadores da malha, convergência, erros e tempo de execução.
-- Superfície tridimensional que pode ser girada, ampliada e consultada ponto a ponto, além do mapa de temperatura.
-- Animação das varreduras SOR.
-- Planta interativa com os 6.399 pontos da malha: seleção por clique ou pelas setas do teclado.
-- Caixa junto ao ponto selecionado com coordenadas, temperatura numérica, temperatura analítica e erro absoluto.
-- Lista dos 6.083 pontos internos e exportação em CSV.
-- Código do método disponível na própria página.
-
-## Problema e método
-
-Em regime estacionário, as temperaturas deixam de variar no tempo. Sem fontes de calor no interior, a equação de Laplace relaciona cada ponto aos seus vizinhos. As quatro bordas têm valores prescritos; o algoritmo calcula os pontos internos.
-
-Resolve-se a equação de Laplace no domínio $1<x<40$, $0<y<40$:
+A placa ocupa a região $1<x<40$ e $0<y<40$. Em equilíbrio, a temperatura $T$ obedece à equação de Laplace:
 
 $$
 \frac{\partial^2 T}{\partial x^2}+\frac{\partial^2 T}{\partial y^2}=0.
 $$
 
-As condições de contorno utilizadas são:
+Os valores das quatro bordas são:
 
 $$
 T(1,y)=\ln(1+y^2),\qquad T(40,y)=\ln(1600+y^2),
@@ -42,53 +31,232 @@ $$
 T(x,0)=2\ln x,\qquad T(x,40)=\ln(x^2+1600).
 $$
 
-Com $h=k=0{,}5$, o esquema de cinco pontos resulta em:
+O espaçamento de $0{,}5$ forma uma malha de $79\times81=6.399$ pontos. Os 316 pontos da borda já têm valores definidos; os 6.083 pontos internos são calculados por diferenças finitas. Em cada ponto interno, o valor se aproxima da média dos quatro vizinhos:
 
 $$
-4T_{i,j}-T_{i-1,j}-T_{i+1,j}-T_{i,j-1}-T_{i,j+1}=0.
+T_{i,j}=\frac{T_{i-1,j}+T_{i+1,j}+T_{i,j-1}+T_{i,j+1}}{4}.
 $$
 
-O sistema tem 6.083 incógnitas internas. Os 316 pontos de borda recebem os valores prescritos. As estimativas internas começam em zero e são atualizadas por SOR com ordenação em duas cores, fator $\omega=1{,}92$ e tolerância de $10^{-12}$ para a maior alteração por varredura. O limite de execução é de 20.000 varreduras.
+O sistema é resolvido por sobrerrelaxação sucessiva (SOR), com $\omega=1{,}92$. A solução analítica $T(x,y)=\ln(x^2+y^2)$ serve para conferir os resultados. Os tons mais escuros dos gráficos indicam valores maiores de $T$. O enunciado não informa uma unidade física para a temperatura.
 
-A referência analítica é $T(x,y)=\ln(x^2+y^2)$. Os erros são calculados sobre os pontos internos. A animação acompanha as iterações numéricas; a equação modela o estado estacionário.
-
-Os valores de $T$ são apresentados sem unidade física: o enunciado fornece funções de contorno, mas não estabelece graus Celsius ou outra unidade. No mapa, os tons mais escuros representam os valores maiores.
-
-## Resultados de referência
-
-| Medida | Valor |
+| Resultado | Valor |
 | --- | ---: |
-| Pontos da malha | 79 × 81 = 6.399 |
+| Pontos da malha | 6.399 |
 | Pontos internos calculados | 6.083 |
 | Varreduras SOR | 479 |
-| Erro absoluto máximo | 0,004402389 |
-| Ponto de erro máximo | (1,5; 1,5) |
+| Maior erro absoluto | 0,004402389 em (1,5; 1,5) |
 | Erro absoluto médio | 0,000135291 |
-| RMSE | 0,000318676 |
 
-O tempo de execução é medido a cada cálculo e depende do computador e do navegador.
+O tempo de cálculo depende do computador e é mostrado pelo aplicativo.
 
-## Executar o JavaScript no console do navegador
+## Código JavaScript
 
-1. Abra `index.html` no navegador.
-2. Abra o arquivo [solve_laplace.js](solve_laplace.js), copie todo o conteúdo e cole no **Console** das ferramentas do navegador (F12).
-3. Pressione **Enter**. O cálculo é executado e as 6.083 temperaturas internas são impressas no console.
+Código completo de [solve_laplace.js](solve_laplace.js), pronto para copiar:
 
-O arquivo é autocontido e pode ser colado no console de qualquer página. Ao executar o código novamente, ele refaz o cálculo. Na página do aplicativo, `solveLaplace().metrics` também mostra as métricas sem imprimir a lista completa.
+<details>
+<summary>Mostrar código</summary>
 
-Se Node.js já estiver instalado, o mesmo algoritmo pode ser executado no terminal:
+```javascript
+(function () {
+"use strict";
 
-```sh
-node solve_laplace.js
+const X0 = 1.0;
+const X1 = 40.0;
+const Y0 = 0.0;
+const Y1 = 40.0;
+const H = 0.5;
+const K = 0.5;
+const OMEGA = 1.92;
+const TOL = 1e-12;
+const MAX_SWEEPS = 20000;
+
+function exact(x, y) {
+  return Math.log(x * x + y * y);
+}
+
+function createLaplaceStepper() {
+  const nx = Math.round((X1 - X0) / H) + 1;
+  const ny = Math.round((Y1 - Y0) / K) + 1;
+  const values = new Float64Array(nx * ny);
+  const index = (i, j) => j * nx + i;
+  const xAt = (i) => X0 + i * H;
+  const yAt = (j) => Y0 + j * K;
+
+  for (let j = 0; j < ny; j += 1) {
+    values[index(0, j)] = Math.log(1 + yAt(j) ** 2);
+    values[index(nx - 1, j)] = Math.log(1600 + yAt(j) ** 2);
+  }
+  for (let i = 0; i < nx; i += 1) {
+    values[index(i, 0)] = 2 * Math.log(xAt(i));
+    values[index(i, ny - 1)] = Math.log(xAt(i) ** 2 + 1600);
+  }
+
+  let sweeps = 0;
+  let maxUpdate = Infinity;
+  function step(maxSteps = 1) {
+    let completed = 0;
+    while (completed < maxSteps && sweeps < MAX_SWEEPS && maxUpdate >= TOL) {
+      maxUpdate = 0;
+      for (let color = 0; color <= 1; color += 1) {
+        for (let j = 1; j < ny - 1; j += 1) {
+          for (let i = 1; i < nx - 1; i += 1) {
+            if (((i + j) & 1) !== color) continue;
+            const p = index(i, j);
+            const average = 0.25 * (
+              values[p - 1] + values[p + 1] +
+              values[p - nx] + values[p + nx]
+            );
+            const next = values[p] + OMEGA * (average - values[p]);
+            const change = Math.abs(next - values[p]);
+            if (change > maxUpdate) maxUpdate = change;
+            values[p] = next;
+          }
+        }
+      }
+      sweeps += 1;
+      completed += 1;
+    }
+    return { sweeps, maxUpdate, done: sweeps >= MAX_SWEEPS || maxUpdate < TOL };
+  }
+
+  return { nx, ny, values, xAt, yAt, step, get sweeps() { return sweeps; }, get maxUpdate() { return maxUpdate; } };
+}
+
+function solveLaplace() {
+  const stepper = createLaplaceStepper();
+  let progress = stepper.step(MAX_SWEEPS);
+  const { nx, ny, values, xAt, yAt } = stepper;
+  const sweeps = progress.sweeps;
+  const maxUpdate = progress.maxUpdate;
+  const index = (i, j) => j * nx + i;
+
+  let maxResidual = 0;
+  let maxError = 0;
+  let sumError = 0;
+  let sumSquaredError = 0;
+  let maxErrorI = 0;
+  let maxErrorJ = 0;
+  let minTemperature = Infinity;
+  let maxTemperature = -Infinity;
+
+  for (let j = 0; j < ny; j += 1) {
+    for (let i = 0; i < nx; i += 1) {
+      const value = values[index(i, j)];
+      minTemperature = Math.min(minTemperature, value);
+      maxTemperature = Math.max(maxTemperature, value);
+      if (i === 0 || i === nx - 1 || j === 0 || j === ny - 1) continue;
+
+      const p = index(i, j);
+      const residual = Math.abs(
+        4 * values[p] - values[p - 1] - values[p + 1] -
+        values[p - nx] - values[p + nx]
+      );
+      maxResidual = Math.max(maxResidual, residual);
+
+      const error = Math.abs(values[p] - exact(xAt(i), yAt(j)));
+      sumError += error;
+      sumSquaredError += error * error;
+      if (error > maxError) {
+        maxError = error;
+        maxErrorI = i;
+        maxErrorJ = j;
+      }
+    }
+  }
+
+  const interiorUnknowns = (nx - 2) * (ny - 2);
+  const metrics = {
+    nx,
+    ny,
+    interiorUnknowns,
+    sweeps,
+    omega: OMEGA,
+    maxUpdate,
+    maxResidual,
+    maxAbsError: maxError,
+    meanAbsError: sumError / interiorUnknowns,
+    rmse: Math.sqrt(sumSquaredError / interiorUnknowns),
+    maxErrorX: xAt(maxErrorI),
+    maxErrorY: yAt(maxErrorJ),
+    minTemperature,
+    maxTemperature,
+  };
+
+  const sampleCoordinates = [
+    [1.5, 1.5], [2.0, 1.0], [5.0, 5.0],
+    [10.0, 10.0], [20.0, 20.0], [39.5, 39.5],
+  ];
+  const samples = sampleCoordinates.map(([x, y]) => {
+    const i = Math.round((x - X0) / H);
+    const j = Math.round((y - Y0) / K);
+    const numerical = values[index(i, j)];
+    const analytical = exact(x, y);
+    return { x, y, numerical, analytical, absoluteError: Math.abs(numerical - analytical) };
+  });
+
+  return { nx, ny, values, metrics, samples, xAt, yAt };
+}
+
+function printResults(result, calculationMs) {
+  const m = result.metrics;
+  console.log("Equação de Laplace — diferenças finitas e SOR (JavaScript puro)");
+  console.log(`Malha: ${m.nx} × ${m.ny} nós; ${m.interiorUnknowns} incógnitas internas.`);
+  console.log(`SOR: ω = ${m.omega}; ${m.sweeps} varreduras; maior atualização = ${m.maxUpdate.toExponential(3)}.`);
+  console.log(`Resíduo máximo do stencil: ${m.maxResidual.toExponential(3)}.`);
+  console.log(`Erro máximo: ${m.maxAbsError.toFixed(12)} em (${m.maxErrorX}, ${m.maxErrorY}).`);
+  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}; RMSE: ${m.rmse.toFixed(12)}.`);
+  console.log("Comparação em pontos selecionados:");
+  console.table(result.samples.map((s) => ({
+    x: s.x,
+    y: s.y,
+    "T numérica": s.numerical.toFixed(12),
+    "T analítica": s.analytical.toFixed(12),
+    "Erro absoluto": s.absoluteError.toExponential(3),
+  })));
+  console.log(`Tempo de cálculo da malha: ${calculationMs.toFixed(3)} ms (sem contar a impressão da lista).`);
+  console.log("\nLISTA COMPLETA DAS TEMPERATURAS INTERNAS");
+  console.log("N | x | y | T numérica | T analítica | Erro absoluto");
+  let rowNumber = 0;
+  for (let j = 1; j < result.ny - 1; j += 1) {
+    for (let i = 1; i < result.nx - 1; i += 1) {
+      rowNumber += 1;
+      const x = result.xAt(i);
+      const y = result.yAt(j);
+      const numerical = result.values[j * result.nx + i];
+      const analytical = exact(x, y);
+      const error = Math.abs(numerical - analytical);
+      console.log(`${String(rowNumber).padStart(4, "0")} | ${x.toFixed(1)} | ${y.toFixed(1)} | ` +
+        `${numerical.toFixed(12)} | ${analytical.toFixed(12)} | ${error.toExponential(3)}`);
+    }
+  }
+  console.log(`Resultados impressos: ${rowNumber}.`);
+}
+
+if (typeof globalThis !== "undefined") {
+  globalThis.solveLaplace = solveLaplace;
+  globalThis.createLaplaceStepper = createLaplaceStepper;
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { solveLaplace, exact, createLaplaceStepper };
+}
+
+function clockMilliseconds() {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+if (typeof document === "undefined" || document.currentScript === null) {
+  const start = clockMilliseconds();
+  const result = solveLaplace();
+  const calculationMs = clockMilliseconds() - start;
+  printResults(result, calculationMs);
+}
+})();
 ```
 
-```text
-index.html           Aplicação pronta para abrir
-solve_laplace.js     Algoritmo puro, executável no console
-univasf.png          Marca institucional
-app_screenshot.png   Captura real da aplicação
-campus_petrolina.jpg Fotografia do campus
-```
+</details>
 
 ## Discentes
 
@@ -97,12 +265,4 @@ campus_petrolina.jpg Fotografia do campus
 - Guilherme Torres de Miranda
 - Luiz Felipe Monte de Oliveira
 
-Disciplina: **MATM0048 — Cálculo Numérico**. Professor: **Sergio Floquet**. Universidade Federal do Vale do São Francisco — **UNIVASF**.
-
-A identidade visual utiliza a marca institucional e o [manual de identidade visual da UNIVASF](https://portais.univasf.edu.br/comunicacao/ManualdeIdentidadeVisualUniversidadeFederaldoValedoSoFranciscoUnivasf.pdf).
-
-### Imagem da universidade
-
-<img src="campus_petrolina.jpg" alt="Entrada da UNIVASF em Petrolina" width="560">
-
-Campus Petrolina. Fotografia de [A. Júnior, disponibilizada no Wikimedia Commons](https://commons.wikimedia.org/wiki/File:UNIVASF_-_Universidade_Federal_do_Vale_do_S%C3%A3o_Francisco_-_Petrolina,_Pernambuco.jpg), sob a licença [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/). A imagem não foi alterada.
+**MATM0048 — Cálculo Numérico · Professor Sergio Floquet · UNIVASF**
