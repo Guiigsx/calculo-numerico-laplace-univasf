@@ -74,7 +74,6 @@ function solveLaplace() {
   let maxResidual = 0;
   let maxError = 0;
   let sumError = 0;
-  let sumSquaredError = 0;
   let maxErrorI = 0;
   let maxErrorJ = 0;
   let minTemperature = Infinity;
@@ -96,7 +95,6 @@ function solveLaplace() {
 
       const error = Math.abs(values[p] - exact(xAt(i), yAt(j)));
       sumError += error;
-      sumSquaredError += error * error;
       if (error > maxError) {
         maxError = error;
         maxErrorI = i;
@@ -116,7 +114,6 @@ function solveLaplace() {
     maxResidual,
     maxAbsError: maxError,
     meanAbsError: sumError / interiorUnknowns,
-    rmse: Math.sqrt(sumSquaredError / interiorUnknowns),
     maxErrorX: xAt(maxErrorI),
     maxErrorY: yAt(maxErrorJ),
     minTemperature,
@@ -145,7 +142,7 @@ function printResults(result, calculationMs) {
   console.log(`SOR: ω = ${m.omega}; ${m.sweeps} varreduras; maior atualização = ${m.maxUpdate.toExponential(3)}.`);
   console.log(`Resíduo máximo do stencil: ${m.maxResidual.toExponential(3)}.`);
   console.log(`Erro máximo: ${m.maxAbsError.toFixed(12)} em (${m.maxErrorX}, ${m.maxErrorY}).`);
-  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}; RMSE: ${m.rmse.toFixed(12)}.`);
+  console.log(`Erro médio: ${m.meanAbsError.toFixed(12)}.`);
   console.log("Comparação em pontos selecionados:");
   console.table(result.samples.map((s) => ({
     x: s.x,
